@@ -163,10 +163,10 @@ if "current_query" not in st.session_state:
     st.session_state.current_query = "Analyze urban heat island intensity and green space canopy deficit for Khulna city"
 if "custom_aoi_data" not in st.session_state:
     st.session_state.custom_aoi_data = None
-if "input_mode_radio" not in st.session_state:
-    st.session_state.input_mode_radio = "🌐 Search Any Place Worldwide"
+if "selected_raster_idx" not in st.session_state:
+    st.session_state.selected_raster_idx = "ndvi"
 
-# Sidebar Branding & Benchmark Control Panel
+# Sidebar: 13-Index Multi-Spectral & Terrain Raster Analysis Panel
 with st.sidebar:
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
@@ -178,24 +178,45 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 🎯 Benchmark Scenarios")
-    scenarios = {
-        "🌿 Khulna: Urban Heat & Canopy Deficit": "Analyze urban heat island intensity and green space canopy deficit for Khulna city",
-        "🚶 Dhaka: 15-Minute City Walkability Audit": "Evaluate 15-minute city walkability, pedestrian isochrones, and park accessibility for Dhaka",
-        "💧 Cox's Bazar: Sponge City & Hydrology": "Model SCS-CN stormwater runoff and sponge city retention capacity for Cox's Bazar",
-        "🌊 Chittagong: Coastal Flood & Tidal Hazard": "Simulate 25-year flood inundation and zoning setback vulnerability for Chittagong",
-        "🔄 Rajshahi: Multi-Temporal LULC & Sprawl": "Analyze urban sprawl and land use change dynamics for Rajshahi",
-        "🏭 Mymensingh: Atmospheric Air Pollution": "Evaluate atmospheric air pollution and industrial emission corridors for Mymensingh",
-        "🌐 Tokyo: Global 15-Min Walkability Benchmark": "Perform 15-minute city walkability isochrone and transit access audit for Tokyo",
-        "🏙️ London: Comprehensive Environmental Audit": "Conduct a comprehensive urban planning and environmental resilience audit for London"
+    st.markdown("### 🛰️ ১৩টি রাস্টার অ্যানালাইসিস ইনডেক্স")
+    
+    raster_options = {
+        "lulc": "🔄 LULC (Land Use / Land Cover ৫-ক্লাস)",
+        "ndvi": "🌿 NDVI (Sentinel-2 ক্যানোপি ও ভেজিটেশন)",
+        "ndwi": "💧 NDWI (Sentinel-2 জলাশয় ও ড্রেনেজ চ্যানেল)",
+        "ndbi": "🏢 NDBI (বিল্ট-আপ কংক্রিট ও আরবান স্প্রল)",
+        "dem": "🏔️ DEM (NASADEM / SRTM ৩০ মি উচ্চতা)",
+        "slope": "📐 Slope (ভূমির ঢাল — ০° থেকে ৯০°)",
+        "aspect": "🧭 Aspect (সোলার এজিমুথ ও ঢালের দিক)",
+        "flow_accumulation": "🌊 Flow Accumulation (ড্রেনেজ ও স্ট্রিম নেটওয়ার্ক)",
+        "bsi": "🏜️ BSI (উন্মুক্ত মাটি ও ল্যান্ড ডিগ্রেডেশন)",
+        "evi": "🌾 EVI (এনহ্যান্সড ভেজিটেশন ইনডেক্স)",
+        "lst": "🔥 LST (ল্যান্ড সারফেস টেম্পারেচার °C)",
+        "sponge_runoff": "💧 SCS-CN Runoff (সারফেস রানঅফ গভীরতা mm)",
+        "flood_depth": "🌊 Coastal Flood (উপকূলীয় প্লাবন গভীরতা m)"
     }
     
-    selected_scenario = st.selectbox("Select a benchmark scenario:", list(scenarios.keys()))
-    if st.button("🚀 Load & Run Scenario", use_container_width=True):
-        st.session_state.custom_aoi_data = None
-        st.session_state.current_query = scenarios[selected_scenario]
-        st.session_state.agent_result = run_geolab_workflow(scenarios[selected_scenario])
-        st.rerun()
+    raster_keys = list(raster_options.keys())
+    default_idx_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 1
+    
+    selected_raster_key = st.selectbox(
+        "ম্যাপে প্রদর্শনের জন্য অ্যানালাইসিস সিলেক্ট করুন:",
+        raster_keys,
+        index=default_idx_pos,
+        format_func=lambda k: raster_options[k],
+        key="sidebar_raster_selector"
+    )
+    st.session_state.selected_raster_idx = selected_raster_key
+    
+    # Active selected raster metadata display
+    r_info = AVAILABLE_RASTER_TYPES.get(selected_raster_key, {})
+    st.markdown(f"""
+    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 0.8rem;">
+        <div style="color: #38bdf8; font-weight: 700; margin-bottom: 3px;">🔬 {r_info.get('name', '')}</div>
+        <div style="color: #cbd5e1; margin-bottom: 4px;"><strong>Sensor:</strong> {r_info.get('sensor', '')}</div>
+        <div style="color: #94a3b8; font-family: monospace; font-size: 0.75rem;">{r_info.get('formula', '')}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown("---")
     st.markdown("### ⚙️ System Configuration")
@@ -303,31 +324,6 @@ else:
 result = st.session_state.agent_result
 custom_aoi = st.session_state.custom_aoi_data
 
-# Location & Spatial Intelligence Badge
-if result:
-    loc_display = result.get("target_location", "Study Area")
-    dom_display = result.get("identified_domain", "Urban Planning")
-    coords_display = result.get("center_coordinates", [22.8456, 89.5403])
-    lat_str = f"{coords_display[0]:.4f}° N" if coords_display[0] >= 0 else f"{abs(coords_display[0]):.4f}° S"
-    lon_str = f"{coords_display[1]:.4f}° E" if coords_display[1] >= 0 else f"{abs(coords_display[1]):.4f}° W"
-    
-    aoi_tag = "📁 Custom Uploaded Study Area" if custom_aoi else "🌐 Global Geocoded Extent"
-    extra_meta = f" | 📐 {custom_aoi['area_km2']:,} km² ({custom_aoi['area_ha']:,} ha)" if custom_aoi else ""
-    
-    st.markdown(f"""
-    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div>
-            <span style="color: #38bdf8; font-weight: 700; font-size: 0.95rem;">📍 Target Study Area:</span>
-            <strong style="color: #f8fafc; font-size: 1.05rem; margin-left: 6px;">{loc_display}</strong>
-            <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">({lat_str}, {lon_str}{extra_meta})</span>
-        </div>
-        <div>
-            <span style="color: #34d399; font-size: 0.82rem; font-weight: 600; margin-right: 8px;">{aoi_tag}</span>
-            <span style="color: #e2e8f0; font-size: 0.9rem; background: rgba(56, 189, 248, 0.15); padding: 3px 8px; border-radius: 4px;">🔬 {dom_display}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
 
 # ==============================================================================
 # TOP-LEVEL WEBSITE NAVIGATION TABS
@@ -431,14 +427,30 @@ with main_tab_studio:
                         st.json(res)
 
         with col_right:
-            st.markdown("### 🗺️ Interactive Multi-Layer Geospatial Map")
+            loc_display = result.get("target_location", "Khulna")
             center = result.get("center_coordinates", [22.8456, 89.5403])
             layers = result.get("geojson_layers", [])
+            custom_bbox_vals = custom_aoi["bbox"] if custom_aoi else None
+            
+            active_raster_label = raster_options.get(st.session_state.selected_raster_idx, st.session_state.selected_raster_idx)
+            
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <h3 style="margin: 0; font-size: 1.15rem; color: #f8fafc;">🗺️ Interactive Geospatial Map</h3>
+                <span style="font-size: 0.8rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 3px 10px; border-radius: 6px; font-weight: 600;">
+                    {active_raster_label}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
             
             map_obj = build_interactive_folium_map(
                 center_coords=center,
                 zoom_start=13,
-                geojson_layers=layers
+                geojson_layers=layers,
+                active_raster_type=st.session_state.selected_raster_idx,
+                target_location=loc_display,
+                metrics=result.get("collected_metrics", {}),
+                custom_bbox=custom_bbox_vals
             )
             
             if hasattr(map_obj, "get_root"):
@@ -447,7 +459,7 @@ with main_tab_studio:
                 st.info("🗺️ Multi-Layer Map Layer Metadata Available.")
                 st.json(map_obj)
             
-            st.caption("💡 *Tip: Use the top-right layer switch on the map to toggle between Dark Matter, Satellite Imagery, Custom AOI Boundaries, Thermal Hotspots, LULC Changes, Sponge Basins, and 15-Minute Isochrone Walksheds.*")
+            st.caption(f"💡 *ম্যাপে বর্তমানে **{active_raster_label}** রাস্টার লেয়ার প্রদর্শন করা হচ্ছে। উপরের ডানপাশের লেয়ার কন্ট্রোল থেকে স্যাটেলাইট বা ডার্ক মোড বেসম্যাপ টগল করতে পারেন।*")
 
 
 # ==============================================================================
@@ -542,10 +554,11 @@ with main_tab_eo:
         raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
         
+        default_eo_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 0
         selected_eo_idx_label = st.selectbox(
             "Select Remote Sensing / Terrain Index to Analyze:",
             raster_labels,
-            index=0,
+            index=default_eo_pos,
             key="select_eo_raster_band"
         )
         
@@ -763,15 +776,7 @@ with main_tab_export:
         raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
         
-        default_idx = 0
-        if any("lst_heat_island" in k for k in metrics_dict.keys()):
-            default_idx = raster_keys.index("lst")
-        elif any("sponge_city" in k for k in metrics_dict.keys()):
-            default_idx = raster_keys.index("sponge_runoff")
-        elif any("flood_hazard" in k for k in metrics_dict.keys()):
-            default_idx = raster_keys.index("flood_depth")
-        elif any("lulc_change" in k for k in metrics_dict.keys()):
-            default_idx = raster_keys.index("lulc")
+        default_idx = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 0
 
         selected_export_label = st.selectbox(
             "Select Raster Band to Export:",
