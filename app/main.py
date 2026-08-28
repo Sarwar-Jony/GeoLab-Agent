@@ -14,9 +14,10 @@ root_dir = Path(__file__).resolve().parent.parent
 if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
-import streamlit as st
-from streamlit_folium import st_folium
-from dotenv import load_dotenv
+import streamlit as st  # type: ignore
+from streamlit_folium import st_folium  # type: ignore
+from dotenv import load_dotenv  # type: ignore
+
 
 load_dotenv()
 
