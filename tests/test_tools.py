@@ -188,9 +188,32 @@ class TestGeospatialTools(unittest.TestCase):
         self.assertIn("stats", tif_meta)
         self.assertGreater(tif_meta["stats"]["max"], tif_meta["stats"]["min"])
 
+    def test_detailed_index_analytics(self):
+        from src.tools.index_analytics import compute_detailed_index_analytics
+
+        # Test NDVI detailed analytics
+        ndvi_res = compute_detailed_index_analytics("ndvi", "Khulna")
+        self.assertEqual(ndvi_res["raster_type"], "ndvi")
+        self.assertEqual(len(ndvi_res["kpis"]), 4)
+        self.assertIn("stats", ndvi_res)
+        self.assertGreater(len(ndvi_res["detailed_synthesis"]), 50)
+        self.assertGreater(len(ndvi_res["policy_recommendations"]), 0)
+
+        # Test LST detailed analytics
+        lst_res = compute_detailed_index_analytics("lst", "Dhaka")
+        self.assertEqual(lst_res["raster_type"], "lst")
+        self.assertEqual(len(lst_res["kpis"]), 4)
+        self.assertIn("stats", lst_res)
+
+        # Test LULC detailed analytics with class distribution
+        lulc_res = compute_detailed_index_analytics("lulc", "Sylhet")
+        self.assertEqual(lulc_res["raster_type"], "lulc")
+        self.assertEqual(len(lulc_res["distribution"]), 5)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

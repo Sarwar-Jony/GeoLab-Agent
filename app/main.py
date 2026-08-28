@@ -25,6 +25,7 @@ from src.tools.map_renderer import build_interactive_folium_map
 from src.tools.raster_exporter import generate_geotiff_raster, AVAILABLE_RASTER_TYPES
 from src.tools.exporter_hub import convert_geojson_to_kml, generate_printable_html, generate_master_zip_package
 from src.tools.aoi_processor import process_uploaded_aoi
+from src.tools.index_analytics import compute_detailed_index_analytics
 
 
 # Page Configuration
@@ -110,7 +111,7 @@ st.markdown("""
         margin-bottom: 4px;
     }
     .metric-value {
-        font-size: 1.5rem;
+        font-size: 1.45rem;
         font-weight: 700;
         color: #38bdf8;
     }
@@ -165,8 +166,8 @@ if "custom_aoi_data" not in st.session_state:
     st.session_state.custom_aoi_data = None
 if "selected_raster_idx" not in st.session_state:
     st.session_state.selected_raster_idx = "ndvi"
-if "map_view_mode" not in st.session_state:
-    st.session_state.map_view_mode = "Split Studio (Map + Policy)"
+if "target_location_name" not in st.session_state:
+    st.session_state.target_location_name = "Khulna"
 
 # 13 Standard Earth Observation & Terrain Products
 RASTER_OPTIONS_EN = {
@@ -255,7 +256,7 @@ st.markdown("""
     <div>
         <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #f8fafc;">Autonomous Spatial Planning & GeoAI Studio</h1>
         <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.95rem;">
-            Upload your Study Area Shapefile or search any location worldwide to orchestrate Earth Observation and Policy Analytics
+            Select your desired Analysis Product, search any Study Area or upload your Shapefile, and get Real-Time Maps & Dynamic Analytics
         </p>
     </div>
     <div>
@@ -264,83 +265,106 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Study Area Input Mode Switcher
-mode_col1, mode_col2 = st.columns([1, 1])
-with mode_col1:
+
+# ==============================================================================
+# STEP 1 & 2: DYNAMIC ANALYSIS CONTROLS (PRODUCT + STUDY AREA)
+# ==============================================================================
+st.markdown("""
+<div style="background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px;">
+    <div style="font-size: 0.85rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; margin-bottom: 12px;">
+        ⚙️ Step 1: Select Analysis Product &nbsp;|&nbsp; Step 2: Define Study Area
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+ctrl_col1, ctrl_col2 = st.columns([1.1, 1.3], gap="medium")
+
+with ctrl_col1:
+    st.markdown("**1. Select Earth Observation / Terrain Analysis Product:**")
+    active_idx_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 1
+    chosen_product = st.selectbox(
+        "Select Analysis Product:",
+        raster_keys,
+        index=active_idx_pos,
+        format_func=lambda k: RASTER_OPTIONS_EN[k],
+        key="main_page_raster_selector",
+        label_visibility="collapsed"
+    )
+    if chosen_product != st.session_state.selected_raster_idx:
+        st.session_state.selected_raster_idx = chosen_product
+        st.rerun()
+
+with ctrl_col2:
+    st.markdown("**2. Define Study Area (Search Worldwide OR Upload Shapefile):**")
     input_mode = st.radio(
-        "Select Study Area Input Mode:",
-        ["🌐 Search Any Place Worldwide", "📁 Upload Custom Study Area (Shapefile / GeoJSON / KML)"],
+        "Study Area Input Mode:",
+        ["🌐 Search Place", "📁 Upload Shapefile/GeoJSON"],
         horizontal=True,
         label_visibility="collapsed"
     )
 
 custom_aoi = st.session_state.custom_aoi_data
 
-if input_mode == "🌐 Search Any Place Worldwide":
-    # Universal Spatial Search Bar
-    with st.container():
-        col_input, col_btn = st.columns([5, 1])
-        with col_input:
-            user_query = st.text_input(
-                "Search any place or enter a Spatial Planning query:",
-                value=st.session_state.current_query,
-                placeholder="Search any place, e.g., 'Sylhet heat island', 'Sundarbans mangrove', 'Cox\'s Bazar runoff', 'Tokyo resilience'...",
-                label_visibility="collapsed"
-            )
-        with col_btn:
-            run_btn = st.button("🔍 Search & Run", use_container_width=True)
+if input_mode == "🌐 Search Place":
+    search_col_in, search_col_btn = st.columns([4, 1])
+    with search_col_in:
+        user_place_query = st.text_input(
+            "Enter City / Study Area Name:",
+            value=st.session_state.target_location_name,
+            placeholder="e.g., 'Khulna', 'Sylhet', 'Sundarbans', 'Tokyo', 'London', 'Cox\'s Bazar'...",
+            label_visibility="collapsed"
+        )
+    with search_col_btn:
+        search_btn = st.button("🚀 Analyze", use_container_width=True, key="btn_run_place_search")
 
-    if run_btn:
+    if search_btn:
         st.session_state.custom_aoi_data = None
-        with st.spinner("🤖 Multi-Agent Engine geocoding location and orchestrating GEE, OSMnx, Hydrology..."):
-            st.session_state.agent_result = run_geolab_workflow(user_query)
+        st.session_state.target_location_name = user_place_query
+        full_query = f"Analyze {RASTER_OPTIONS_EN[st.session_state.selected_raster_idx]} for {user_place_query}"
+        with st.spinner(f"🤖 Multi-Agent Engine orchestrating analytics for {user_place_query}..."):
+            st.session_state.agent_result = run_geolab_workflow(full_query)
+            st.rerun()
     elif st.session_state.agent_result is None and custom_aoi is None:
         with st.spinner("🤖 Initializing GeoAI Spatial Engine..."):
-            st.session_state.agent_result = run_geolab_workflow(st.session_state.current_query)
+            st.session_state.agent_result = run_geolab_workflow(f"Analyze {st.session_state.target_location_name}")
 
 else:
-    # Custom Study Area Shapefile / GeoJSON Uploader
-    with st.container():
-        upload_col, action_col = st.columns([4, 1])
-        with upload_col:
-            uploaded_aoi_file = st.file_uploader(
-                "Upload Custom Study Area Boundary (ESRI Shapefile .zip with .shp/.shx/.dbf/.prj, GeoJSON .geojson, or KML .kml):",
-                type=["zip", "geojson", "json", "kml"],
-                help="Upload a zipped shapefile archive or a standard GeoJSON boundary file."
-            )
-        with action_col:
-            st.write("")
-            st.write("")
-            run_aoi_btn = st.button("🚀 Analyze AOI", use_container_width=True)
-
-        if uploaded_aoi_file is not None:
-            parsed_aoi = process_uploaded_aoi(uploaded_aoi_file.getvalue(), uploaded_aoi_file.name)
-            if parsed_aoi["success"]:
-                st.session_state.custom_aoi_data = parsed_aoi
-                st.success(f"✓ Successfully loaded **{parsed_aoi['aoi_name']}** ({parsed_aoi['format']}) | **Area:** {parsed_aoi['area_km2']:,} km² ({parsed_aoi['area_ha']:,} ha) | **Features:** {parsed_aoi['feature_count']}")
-                if run_aoi_btn:
-                    query_text = f"Analyze multi-criteria urban resilience, land cover, and vegetative canopy for {parsed_aoi['aoi_name']}"
-                    with st.spinner(f"🤖 Orchestrating Earth Observation and GeoAI for custom study area '{parsed_aoi['aoi_name']}'..."):
-                        res = run_geolab_workflow(query_text)
-                        # Override target location and coordinates with uploaded AOI
-                        res["target_location"] = parsed_aoi["aoi_name"]
-                        res["center_coordinates"] = parsed_aoi["center"]
-                        # Inject custom boundary layer
-                        res["geojson_layers"].insert(0, parsed_aoi["geojson_layer"])
-                        st.session_state.agent_result = res
-                        st.rerun()
-            else:
-                st.error(f"❌ Error processing vector boundary: {parsed_aoi['error']}")
+    # Custom Vector Boundary Uploader
+    up_file = st.file_uploader(
+        "Upload Vector File (ESRI Shapefile .zip with .shp/.shx/.dbf/.prj, GeoJSON .geojson, or KML .kml):",
+        type=["zip", "geojson", "json", "kml"],
+        key="uploader_custom_boundary",
+        help="Upload a zipped shapefile or GeoJSON boundary of any study area worldwide."
+    )
+    if up_file is not None:
+        parsed_aoi = process_uploaded_aoi(up_file.getvalue(), up_file.name)
+        if parsed_aoi["success"]:
+            st.session_state.custom_aoi_data = parsed_aoi
+            st.session_state.target_location_name = parsed_aoi["aoi_name"]
+            st.success(f"✓ Loaded **{parsed_aoi['aoi_name']}** | Area: **{parsed_aoi['area_km2']:,} km²** ({parsed_aoi['area_ha']:,} ha) | Features: **{parsed_aoi['feature_count']}**")
+            
+            if st.button("🚀 Run Analysis on Custom AOI", use_container_width=True, key="btn_run_aoi_now"):
+                query_text = f"Analyze {RASTER_OPTIONS_EN[st.session_state.selected_raster_idx]} for custom area {parsed_aoi['aoi_name']}"
+                with st.spinner(f"🤖 Orchestrating Earth Observation for '{parsed_aoi['aoi_name']}'..."):
+                    res = run_geolab_workflow(query_text)
+                    res["target_location"] = parsed_aoi["aoi_name"]
+                    res["center_coordinates"] = parsed_aoi["center"]
+                    res["geojson_layers"].insert(0, parsed_aoi["geojson_layer"])
+                    st.session_state.agent_result = res
+                    st.rerun()
+        else:
+            st.error(f"❌ Error processing vector file: {parsed_aoi['error']}")
 
 result = st.session_state.agent_result
 custom_aoi = st.session_state.custom_aoi_data
+loc_display = custom_aoi["aoi_name"] if custom_aoi else (result.get("target_location", st.session_state.target_location_name) if result else st.session_state.target_location_name)
 
 
 # ==============================================================================
 # TOP-LEVEL WEBSITE NAVIGATION TABS (PURE ENGLISH)
 # ==============================================================================
 main_tab_studio, main_tab_whatif, main_tab_eo, main_tab_export, main_tab_methodology, main_tab_about = st.tabs([
-    "🌍 Visual Map & Spatial Studio",
+    "🌍 Visual Map & Dynamic Analytics",
     "🧪 Digital Twin 'What-If' Sandbox",
     "🛰️ Earth Observation Explorer",
     "💾 GIS & Municipal Export Hub",
@@ -350,112 +374,133 @@ main_tab_studio, main_tab_whatif, main_tab_eo, main_tab_export, main_tab_methodo
 
 
 # ==============================================================================
-# TAB 1: VISUAL MAP & SPATIAL PLANNING STUDIO
+# TAB 1: VISUAL MAP & DYNAMIC DETAILED ANALYTICS (PRODUCT-TAILORED)
 # ==============================================================================
 with main_tab_studio:
     if result:
-        loc_display = result.get("target_location", "Khulna")
-        center = result.get("center_coordinates", [22.8456, 89.5403])
+        center = custom_aoi["center"] if custom_aoi else result.get("center_coordinates", [22.8456, 89.5403])
         layers = result.get("geojson_layers", [])
         custom_bbox_vals = custom_aoi["bbox"] if custom_aoi else None
-        active_raster_name = RASTER_OPTIONS_EN.get(st.session_state.selected_raster_idx, st.session_state.selected_raster_idx)
+        active_idx_key = st.session_state.selected_raster_idx
+        active_raster_name = RASTER_OPTIONS_EN.get(active_idx_key, active_idx_key)
 
-        # Dynamic Metric KPI Cards
-        cols = st.columns(4)
-        
-        with cols[0]:
-            green_m2 = result.get("collected_metrics", {}).get("compute_ndvi_statistics__green_space_per_capita_m2", 3.8)
-            ndvi_val = result.get("collected_metrics", {}).get("compute_ndvi_statistics__mean_ndvi", 0.18)
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">Green Space / Capita</div>
-                <div class="metric-value">{green_m2} m²</div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Mean NDVI: {ndvi_val} | WHO Min: 9.0 m²</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # 1. Compute Dynamic Detailed Indicators for the chosen analysis product
+        index_insights = compute_detailed_index_analytics(
+            raster_type=active_idx_key,
+            target_location=loc_display,
+            custom_bbox=custom_bbox_vals,
+            custom_aoi_data=custom_aoi,
+            metrics=result.get("collected_metrics", {})
+        )
 
-        with cols[1]:
-            suhi_delta = result.get("collected_metrics", {}).get("compute_lst_heat_island__suhi_intensity_delta_celsius", "+3.8°C")
-            mean_lst = result.get("collected_metrics", {}).get("compute_lst_heat_island__mean_lst_celsius", 35.4)
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">SUHI Heat Anomaly</div>
-                <div class="metric-value" style="color: #f87171;">{suhi_delta}</div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Mean Core LST: {mean_lst}°C</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # 2. Render 4 Dynamic KPI Cards matching the chosen analysis product
+        kpi_cols = st.columns(4)
+        for i, kpi in enumerate(index_insights["kpis"]):
+            with kpi_cols[i]:
+                st.markdown(f"""
+                <div class="metric-box">
+                    <div class="metric-title">{kpi['title']}</div>
+                    <div class="metric-value">{kpi['value']}</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">{kpi['delta']} | {kpi['benchmark']}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        with cols[2]:
-            walk_idx = result.get("collected_metrics", {}).get("compute_walkability_isochrones__15_min_walkability_index", "68.5/100")
-            transit_acc = result.get("collected_metrics", {}).get("compute_transit_accessibility__transit_access_index", 72.0)
-            st.markdown(f"""
-            <div class="metric-box">
-                <div class="metric-title">15-Min Walkability</div>
-                <div class="metric-value" style="color: #34d399;">{walk_idx}</div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">Transit Access Score: {transit_acc}/100</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        with cols[3]:
-            verdict = result.get("compliance_verdict", "Strategic Intervention Required")
-            st.markdown(f"""
-            <div class="metric-box" style="border-color: rgba(239, 68, 68, 0.3);">
-                <div class="metric-title">Planning Compliance</div>
-                <div class="metric-value" style="font-size: 1.05rem; color: #f87171;">{verdict}</div>
-                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 4px;">URP / WHO Standard Audit</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # Build Interactive Folium Map
+        # 3. Build Interactive Folium Map
         map_obj = build_interactive_folium_map(
             center_coords=center,
             zoom_start=13,
             geojson_layers=layers,
-            active_raster_type=st.session_state.selected_raster_idx,
+            active_raster_type=active_idx_key,
             target_location=loc_display,
             metrics=result.get("collected_metrics", {}),
             custom_bbox=custom_bbox_vals
         )
-
-        # Render HTML string for 100% reliable iframe rendering
         map_html = map_obj.get_root().render() if hasattr(map_obj, "get_root") else "<div>Map loading...</div>"
 
-        # View Mode Selector
+        # 4. View Mode Selector
         view_col1, view_col2 = st.columns([3, 1])
         with view_col1:
             st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                <h3 style="margin: 0; font-size: 1.25rem; color: #f8fafc;">🗺️ Visual Map Studio</h3>
+                <h3 style="margin: 0; font-size: 1.25rem; color: #f8fafc;">🗺️ Visual Map Studio: {loc_display}</h3>
                 <span style="font-size: 0.8rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 3px 10px; border-radius: 6px; font-weight: 600;">
                     🛰️ Active Layer: {active_raster_name}
                 </span>
             </div>
             """, unsafe_allow_html=True)
         with view_col2:
-            map_view = st.radio("Studio View:", ["Split View (Map + Report)", "Full-Width Visual Map"], horizontal=True, label_visibility="collapsed")
+            map_view = st.radio("Studio Layout:", ["Split View (Analytics + Map)", "Full-Width Visual Map"], horizontal=True, label_visibility="collapsed")
 
         if map_view == "Full-Width Visual Map":
             # 100% Full Width Visual Map Experience
             components.html(map_html, height=720, scrolling=False)
-            st.caption(f"💡 *Full-screen Visual Map for **{loc_display}**. Showing **{active_raster_name}** scientific colormap overlay. Toggle base layers (Dark Matter, Satellite, OSM) from the top-right layer control.*")
+            st.caption(f"💡 *Full-screen Visual Map for **{loc_display}** displaying **{active_raster_name}** colormap overlay. Toggle base layers from the top-right layer control.*")
             
-            with st.expander("📑 View Executive Policy Synthesis & Reasoning Trace"):
-                st.markdown(result.get("policy_report_markdown", "*No report generated.*"))
+            with st.expander(f"📊 View Detailed Analytics & Policy Interpretation for {active_raster_name}"):
+                st.markdown(f"#### 🔬 Scientific Findings & Spatial Interpretation")
+                st.markdown(index_insights["detailed_synthesis"])
+                st.markdown("#### 🏛️ Municipal Policy Recommendations")
+                for rec in index_insights["policy_recommendations"]:
+                    st.markdown(f"- {rec}")
         else:
-            # 50/50 Split Studio Layout
-            col_map, col_report = st.columns([1.1, 0.9], gap="medium")
+            # 50/50 Split Studio Layout (Dynamic Detailed Analytics on Left | Live Visual Map on Right)
+            col_analytics, col_map = st.columns([1, 1.1], gap="medium")
             
-            with col_map:
-                components.html(map_html, height=650, scrolling=False)
-                st.caption(f"💡 *Visual Map for **{loc_display}** displaying **{active_raster_name}**.*")
-                
-            with col_report:
-                sub_tab_report, sub_tab_logs, sub_tab_tools = st.tabs([
-                    "📑 Policy Synthesis", 
+            with col_analytics:
+                sub_tab_insight, sub_tab_report, sub_tab_logs, sub_tab_tools = st.tabs([
+                    "📊 Detailed Analytics", 
+                    "📑 Executive Report", 
                     "🔍 Agent Reasoning Trace", 
-                    "⚙️ Executed GIS Tools"
+                    "⚙️ Executed Tools"
                 ])
                 
+                with sub_tab_insight:
+                    st.markdown(f"#### 🔬 {index_insights['title']}")
+                    st.caption(f"**Sensor:** {index_insights['sensor']} | **Units:** {index_insights['units']}")
+                    
+                    # Statistical Range Box
+                    stats = index_insights["stats"]
+                    st.markdown(f"""
+                    <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span><strong>Min:</strong> <code style="color: #38bdf8;">{stats['min']}</code></span>
+                            <span><strong>Max:</strong> <code style="color: #38bdf8;">{stats['max']}</code></span>
+                            <span><strong>Mean:</strong> <code style="color: #38bdf8;">{stats['mean']}</code></span>
+                            <span><strong>Median (P50):</strong> <code style="color: #38bdf8;">{stats['p50']}</code></span>
+                            <span><strong>Std Dev:</strong> <code style="color: #38bdf8;">±{stats['std']}</code></span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Class Distribution if available (e.g. LULC)
+                    if index_insights.get("distribution"):
+                        st.markdown("##### 📈 Land Cover Class Breakdown:")
+                        for row in index_insights["distribution"]:
+                            st.markdown(f"- **{row['Class']}:** {row['Share']} (~{row['Area_km2']} km²)")
+                    
+                    st.markdown("##### 📝 Spatial Scientific Synthesis:")
+                    st.markdown(index_insights["detailed_synthesis"])
+                    
+                    st.markdown("##### 🏛️ Priority Policy Recommendations:")
+                    for rec in index_insights["policy_recommendations"]:
+                        st.markdown(f"- {rec}")
+
+                    # Direct 1-Click GeoTIFF Download for this index
+                    tif_b, tif_fn, tif_m = generate_geotiff_raster(
+                        target_location=loc_display,
+                        raster_type=active_idx_key,
+                        metrics=result.get("collected_metrics", {}),
+                        custom_bbox=custom_bbox_vals
+                    )
+                    st.download_button(
+                        label=f"📥 Download {tif_fn} (.tif for QGIS/ArcGIS)",
+                        data=tif_b,
+                        file_name=tif_fn,
+                        mime="image/tiff",
+                        use_container_width=True,
+                        key=f"btn_quick_download_tif_{active_idx_key}"
+                    )
+                    
                 with sub_tab_report:
                     st.markdown(result.get("policy_report_markdown", "*No report generated.*"))
                     
@@ -478,6 +523,10 @@ with main_tab_studio:
                     for res in result.get("tool_results", []):
                         with st.expander(f"🛠️ {res.get('tool', 'Geospatial Tool')}"):
                             st.json(res)
+                            
+            with col_map:
+                components.html(map_html, height=650, scrolling=False)
+                st.caption(f"💡 *Displaying **{active_raster_name}** colormapped surface for **{loc_display}**.*")
 
 
 # ==============================================================================
@@ -488,7 +537,6 @@ with main_tab_whatif:
     st.caption("Interactively simulate urban greening, cool roof retrofits, transit expansions, and sponge detention interventions with real-time recalculations.")
     
     if result:
-        loc_name = result.get('target_location', 'Study Area')
         sim_col1, sim_col2 = st.columns(2)
         with sim_col1:
             tree_boost = st.slider("🌳 Urban Tree Canopy Target (+%):", min_value=0, max_value=50, value=20, step=5, key="slider_tree_canopy")
@@ -510,7 +558,7 @@ with main_tab_whatif:
         
         runoff_abated_m3 = int(sponge_ha * 10000 * 0.065 * 1000)
 
-        st.markdown(f"#### 📈 Simulated Real-Time Impact Assessment for {loc_name}:")
+        st.markdown(f"#### 📈 Simulated Real-Time Impact Assessment for {loc_display}:")
         
         res_cols = st.columns(4)
         with res_cols[0]:
@@ -563,15 +611,14 @@ with main_tab_eo:
     st.caption("Explore, calculate, and download georeferenced GeoTIFF rasters for 13 satellite remote sensing, hydrological, and terrain indices.")
     
     if result:
-        loc_name = result.get('target_location', 'Study Area')
         metrics_dict = result.get('collected_metrics', {})
         custom_bbox = custom_aoi["bbox"] if custom_aoi else None
         
-        st.markdown(f"#### 🔬 Select & Compute Raster Index for **{loc_name}**:")
+        st.markdown(f"#### 🔬 Select & Compute Raster Index for **{loc_display}**:")
         
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
-        
         default_eo_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 0
+        
         selected_eo_idx_label = st.selectbox(
             "Select Remote Sensing / Terrain Index to Analyze:",
             raster_labels,
@@ -579,21 +626,17 @@ with main_tab_eo:
             key="select_eo_raster_band"
         )
         
-        # Find chosen key
         selected_key = raster_keys[raster_labels.index(selected_eo_idx_label)]
         info_data = AVAILABLE_RASTER_TYPES[selected_key]
         
-        # Generate the GeoTIFF raster tailored to custom_bbox if provided
         eo_tif_bytes, eo_tif_name, eo_tif_meta = generate_geotiff_raster(
-            target_location=loc_name,
+            target_location=loc_display,
             raster_type=selected_key,
             metrics=metrics_dict,
             custom_bbox=custom_bbox
         )
-        
         stats = eo_tif_meta.get("stats", {})
         
-        # Display comprehensive scientific card
         st.markdown(f"""
         <div class="feature-card" style="border: 1px solid rgba(56, 189, 248, 0.4);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
@@ -648,66 +691,6 @@ with main_tab_eo:
             use_container_width=True,
             key=f"btn_download_eo_tab_{selected_key}"
         )
-        
-        st.caption("✓ Georeferenced WGS84 GeoTIFF ready for instant drag-and-drop into **QGIS**, **ArcGIS Pro**, **Google Earth Engine**, or **Python Rasterio**.")
-
-    st.markdown("---")
-    st.markdown("#### 📚 Integrated Satellite Constellations & Sensors")
-    
-    eo_col1, eo_col2 = st.columns(2)
-    with eo_col1:
-        st.markdown("""
-        <div class="feature-card">
-            <h4 style="color: #22c55e; margin-top: 0;">🌿 Copernicus Sentinel-2 (MSI)</h4>
-            <p style="font-size: 0.88rem; color: #cbd5e1;">
-                <strong>Spatial Resolution:</strong> 10m / 20m &nbsp;|&nbsp; <strong>Revisit:</strong> 5 Days<br>
-                <strong>Bands Utilized:</strong> Band 2 (Blue), Band 3 (Green), Band 4 (Red), Band 8 (NIR), Band 11 (SWIR)
-            </p>
-            <p style="font-size: 0.82rem; color: #94a3b8;">
-                Powers high-resolution vegetative canopy (NDVI), surface water delineations (NDWI), built-up morphology (NDBI), and bare soil (BSI).
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="feature-card">
-            <h4 style="color: #38bdf8; margin-top: 0;">💨 Copernicus Sentinel-5P (TROPOMI)</h4>
-            <p style="font-size: 0.88rem; color: #cbd5e1;">
-                <strong>Spatial Resolution:</strong> 5.5 × 3.5 km &nbsp;|&nbsp; <strong>Revisit:</strong> Daily<br>
-                <strong>Products:</strong> Tropospheric NO₂ & Aerosol Optical Depth (AOD)
-            </p>
-            <p style="font-size: 0.82rem; color: #94a3b8;">
-                Monitors air quality indices, industrial plume dispersion corridors, and environmental pollution hotspots.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with eo_col2:
-        st.markdown("""
-        <div class="feature-card">
-            <h4 style="color: #f87171; margin-top: 0;">🔥 USGS / NASA Landsat-9 (TIRS-2)</h4>
-            <p style="font-size: 0.88rem; color: #cbd5e1;">
-                <strong>Spatial Resolution:</strong> 100m (Resampled to 30m) &nbsp;|&nbsp; <strong>Revisit:</strong> 8 Days<br>
-                <strong>Bands Utilized:</strong> Band 10 (Thermal Infrared, 10.6 - 11.19 µm)
-            </p>
-            <p style="font-size: 0.82rem; color: #94a3b8;">
-                Calibrates surface brightness temperatures, emissivity corrections, and Surface Urban Heat Island (SUHI) anomalies.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="feature-card">
-            <h4 style="color: #60a5fa; margin-top: 0;">🏔️ NASADEM & Hydrodynamic Topography</h4>
-            <p style="font-size: 0.88rem; color: #cbd5e1;">
-                <strong>Elevation Resolution:</strong> 30m Global Grid &nbsp;|&nbsp; <strong>Datum:</strong> EGM96 Geoid<br>
-                <strong>Hydrology Model:</strong> Flow Accumulation & USDA NRCS Curve Number (SCS-CN)
-            </p>
-            <p style="font-size: 0.82rem; color: #94a3b8;">
-                Derives topographical slope gradients, aspect azimuths, hydrological flow paths, and 25-year flood inundation zones.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
 
 
 # ==============================================================================
@@ -718,7 +701,6 @@ with main_tab_export:
     st.caption("Export your autonomous spatial analytics directly into desktop GIS (QGIS, ArcGIS Pro), Google Earth, and municipal formats.")
     
     if result:
-        loc_name = result.get('target_location', 'Study Area')
         metrics_dict = result.get('collected_metrics', {})
         custom_bbox = custom_aoi["bbox"] if custom_aoi else None
         
@@ -765,31 +747,27 @@ with main_tab_export:
             st.download_button(
                 label="📥 Download GeoJSON Layers (.geojson)",
                 data=json.dumps(combined_geojson, indent=2),
-                file_name=f"GeoLab_{loc_name}_Layers.geojson",
+                file_name=f"GeoLab_{loc_display}_Layers.geojson",
                 mime="application/geo+json",
                 use_container_width=True,
                 key="btn_download_geojson"
             )
-            st.caption("Compatible with **QGIS**, **ArcGIS Pro**, **Mapbox**, & **Leaflet**.")
             
         with vec_col2:
-            kml_content = convert_geojson_to_kml(combined_geojson, title=f"GeoLab - {loc_name}")
+            kml_content = convert_geojson_to_kml(combined_geojson, title=f"GeoLab - {loc_display}")
             st.download_button(
                 label="🌐 Download Google Earth 3D (.kml)",
                 data=kml_content,
-                file_name=f"GeoLab_{loc_name}_GoogleEarth.kml",
+                file_name=f"GeoLab_{loc_display}_GoogleEarth.kml",
                 mime="application/vnd.google-earth.kml+xml",
                 use_container_width=True,
                 key="btn_download_kml"
             )
-            st.caption("Direct 3D satellite visualization in **Google Earth Pro & Web**.")
 
         st.markdown("---")
         
         # Section 2: Georeferenced GeoTIFF Raster Export
         st.markdown("##### 🛰️ 2. Georeferenced Satellite GeoTIFF Raster (.tif)")
-        st.caption("Standard 32-bit float GeoTIFF with embedded WGS84 (EPSG:4326) CRS & Affine Transform for QGIS, ArcGIS Pro, and Google Earth Engine.")
-        
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
         default_idx = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 0
 
@@ -802,7 +780,7 @@ with main_tab_export:
         
         selected_export_key = raster_keys[raster_labels.index(selected_export_label)]
         geotiff_bytes, geotiff_filename, raster_meta = generate_geotiff_raster(
-            target_location=loc_name,
+            target_location=loc_display,
             raster_type=selected_export_key,
             metrics=metrics_dict,
             custom_bbox=custom_bbox
@@ -835,35 +813,32 @@ with main_tab_export:
             st.download_button(
                 label="📊 Metrics Table (.csv)",
                 data=csv_buffer.getvalue(),
-                file_name=f"GeoLab_{loc_name}_Metrics.csv",
+                file_name=f"GeoLab_{loc_display}_Metrics.csv",
                 mime="text/csv",
                 use_container_width=True,
                 key="btn_download_csv"
             )
-            st.caption("For Python, R, SPSS, Excel.")
             
         with tab_col2:
             html_report_data = generate_printable_html(result)
             st.download_button(
                 label="📄 Municipal Brief (.html)",
                 data=html_report_data,
-                file_name=f"GeoLab_Brief_{loc_name}.html",
+                file_name=f"GeoLab_Brief_{loc_display}.html",
                 mime="text/html",
                 use_container_width=True,
                 key="btn_download_html"
             )
-            st.caption("Printable report with institutional layout.")
             
         with tab_col3:
             st.download_button(
                 label="📑 Policy Synthesis (.md)",
                 data=result.get("policy_report_markdown", ""),
-                file_name=f"GeoLab_Report_{loc_name}.md",
+                file_name=f"GeoLab_Report_{loc_display}.md",
                 mime="text/markdown",
                 use_container_width=True,
                 key="btn_download_md"
             )
-            st.caption("Structured text for research papers.")
 
 
 # ==============================================================================
