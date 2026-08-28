@@ -150,8 +150,10 @@ with st.sidebar:
     }
     
     selected_scenario = st.selectbox("Select a benchmark scenario:", list(scenarios.keys()))
-    if st.button("Load Scenario"):
+    if st.button("🚀 Load & Run Scenario", use_container_width=True):
         st.session_state.current_query = scenarios[selected_scenario]
+        st.session_state.agent_result = run_geolab_workflow(scenarios[selected_scenario])
+        st.rerun()
 
     st.markdown("---")
     st.markdown("### ⚙️ System Configuration")
@@ -200,13 +202,16 @@ with st.container():
     with col_btn:
         run_btn = st.button("🔍 Search & Run", use_container_width=True)
 
-# Execute Workflow on Button Click or Initial Run
-if run_btn or st.session_state.agent_result is None:
+# Execute Workflow on Button Click or Initial Default Load
+if run_btn:
     with st.spinner("🤖 Multi-Agent Engine geocoding location and orchestrating GEE, OSMnx, Hydrology..."):
         st.session_state.agent_result = run_geolab_workflow(user_query)
-
+elif st.session_state.agent_result is None:
+    with st.spinner("🤖 Initializing GeoAI Spatial Engine..."):
+        st.session_state.agent_result = run_geolab_workflow(st.session_state.current_query)
 
 result = st.session_state.agent_result
+
 
 # Location & Spatial Intelligence Badge
 if result:
