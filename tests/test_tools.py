@@ -99,6 +99,16 @@ class TestGeospatialTools(unittest.TestCase):
         self.assertIn("SpongeCity_Runoff", sponge_fn)
         self.assertGreater(len(sponge_bytes), 1000)
 
+        # Test all extended raster indices
+        extended_indices = ["ndwi", "ndbi", "dem", "slope", "aspect", "bsi", "evi", "lst", "flood_depth", "lulc"]
+        for idx in extended_indices:
+            b_data, f_name, r_meta = generate_geotiff_raster("Dhaka", idx)
+            self.assertTrue(f_name.endswith(".tif"))
+            self.assertGreater(len(b_data), 1000)
+            self.assertEqual(r_meta["crs"], "EPSG:4326 (WGS 84)")
+            self.assertIn("dimensions", r_meta)
+
+
     def test_exporter_hub_kml_and_zip(self):
         from src.tools.exporter_hub import convert_geojson_to_kml, generate_master_zip_package, generate_printable_html
 

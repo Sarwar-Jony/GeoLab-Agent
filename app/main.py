@@ -22,8 +22,9 @@ load_dotenv()
 
 from src.agents.workflow import run_geolab_workflow
 from src.tools.map_renderer import build_interactive_folium_map
-from src.tools.raster_exporter import generate_geotiff_raster
+from src.tools.raster_exporter import generate_geotiff_raster, AVAILABLE_RASTER_TYPES
 from src.tools.exporter_hub import convert_geojson_to_kml, generate_printable_html, generate_master_zip_package
+
 
 
 # Page Configuration
@@ -471,27 +472,100 @@ with main_tab_whatif:
 # TAB 3: EARTH OBSERVATION & REMOTE SENSING EXPLORER
 # ==============================================================================
 with main_tab_eo:
-    st.markdown("### 🛰️ Earth Observation & Remote Sensing Sensor Explorer")
-    st.caption("Detailed overview of integrated satellite constellations, spectral bands, and remote sensing algorithms powering GeoLab-Agent.")
+    st.markdown("### 🛰️ Earth Observation & Multi-Spectral Raster Analysis Lab")
+    st.caption("Explore, calculate, and download georeferenced GeoTIFF rasters for any remote sensing index or terrain parameter.")
+    
+    if result:
+        loc_name = result.get('target_location', 'City')
+        metrics_dict = result.get('collected_metrics', {})
+        
+        st.markdown(f"#### 🔬 Select & Compute Raster Index for **{loc_name}**:")
+        
+        raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
+        raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
+        
+        selected_eo_idx_label = st.selectbox(
+            "Select Remote Sensing / Terrain Index to Analyze:",
+            raster_labels,
+            index=0,
+            key="select_eo_raster_band"
+        )
+        
+        # Find chosen key
+        selected_key = raster_keys[raster_labels.index(selected_eo_idx_label)]
+        info_data = AVAILABLE_RASTER_TYPES[selected_key]
+        
+        # Generate the GeoTIFF raster
+        eo_tif_bytes, eo_tif_name, eo_tif_meta = generate_geotiff_raster(
+            target_location=loc_name,
+            raster_type=selected_key,
+            metrics=metrics_dict
+        )
+        
+        # Display comprehensive scientific card
+        st.markdown(f"""
+        <div class="feature-card" style="border: 1px solid rgba(56, 189, 248, 0.4);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h4 style="color: #38bdf8; margin: 0 0 6px 0;">{info_data['name']}</h4>
+                    <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0 0 10px 0;">{info_data['description']}</p>
+                </div>
+                <div>
+                    <span class="agent-pill">WGS84 EPSG:4326</span>
+                </div>
+            </div>
+            
+            <div style="background: rgba(15, 23, 42, 0.7); padding: 12px 16px; border-radius: 8px; margin: 12px 0; border: 1px solid rgba(255, 255, 255, 0.08);">
+                <div style="color: #94a3b8; font-size: 0.78rem; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Mathematical Formulation & Sensor Algorithm</div>
+                <code style="font-size: 1.02rem; color: #38bdf8; font-weight: bold;">{info_data['formula']}</code>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 14px; font-size: 0.85rem;">
+                <div>
+                    <strong style="color: #94a3b8;">Sensor / Source:</strong><br>
+                    <span style="color: #f8fafc;">{info_data['sensor']}</span>
+                </div>
+                <div>
+                    <strong style="color: #94a3b8;">Physical Units:</strong><br>
+                    <span style="color: #f8fafc;">{info_data['units']}</span>
+                </div>
+                <div>
+                    <strong style="color: #94a3b8;">Grid Dimensions:</strong><br>
+                    <span style="color: #f8fafc;">{eo_tif_meta['dimensions']} ({round(eo_tif_meta['byte_size']/1024, 1)} KB)</span>
+                </div>
+                <div>
+                    <strong style="color: #94a3b8;">Data Type:</strong><br>
+                    <span style="color: #f8fafc;">{eo_tif_meta['data_type']} (Float32 / Byte)</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.download_button(
+            label=f"📥 Download {eo_tif_name} (.tif)",
+            data=eo_tif_bytes,
+            file_name=eo_tif_name,
+            mime="image/tiff",
+            use_container_width=True,
+            key=f"btn_download_eo_tab_{selected_key}"
+        )
+        
+        st.caption(f"✓ Georeferenced WGS84 GeoTIFF ready for instant drag-and-drop into **QGIS**, **ArcGIS Pro**, **Google Earth Engine**, or **Python Rasterio**.")
+
+    st.markdown("---")
+    st.markdown("#### 📚 Integrated Satellite Constellations & Sensors")
     
     eo_col1, eo_col2 = st.columns(2)
-    
     with eo_col1:
         st.markdown("""
         <div class="feature-card">
             <h4 style="color: #22c55e; margin-top: 0;">🌿 Copernicus Sentinel-2 (MSI)</h4>
             <p style="font-size: 0.88rem; color: #cbd5e1;">
                 <strong>Spatial Resolution:</strong> 10m / 20m &nbsp;|&nbsp; <strong>Revisit:</strong> 5 Days<br>
-                <strong>Bands Utilized:</strong> Band 4 (Red, 665 nm), Band 8 (NIR, 842 nm)
+                <strong>Bands Utilized:</strong> Band 2 (Blue), Band 3 (Green), Band 4 (Red), Band 8 (NIR), Band 11 (SWIR)
             </p>
-            <p style="font-size: 0.88rem; color: #94a3b8;">
-                <strong>Normalized Difference Vegetation Index (NDVI):</strong>
-            </p>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 6px; font-family: monospace; color: #38bdf8;">
-                NDVI = (NIR - Red) / (NIR + Red)
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 8px;">
-                Evaluates canopy density, green infrastructure deficits, and vegetative health across urban wards.
+            <p style="font-size: 0.82rem; color: #94a3b8;">
+                Powers high-resolution vegetative canopy (NDVI), surface water delineations (NDWI), and built-up urban morphology (NDBI).
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -501,13 +575,10 @@ with main_tab_eo:
             <h4 style="color: #38bdf8; margin-top: 0;">💨 Copernicus Sentinel-5P (TROPOMI)</h4>
             <p style="font-size: 0.88rem; color: #cbd5e1;">
                 <strong>Spatial Resolution:</strong> 5.5 × 3.5 km &nbsp;|&nbsp; <strong>Revisit:</strong> Daily<br>
-                <strong>Atmospheric Products:</strong> Tropospheric NO₂ & Aerosol Optical Depth (AOD)
+                <strong>Products:</strong> Tropospheric NO₂ & Aerosol Optical Depth (AOD)
             </p>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 6px; font-family: monospace; color: #38bdf8;">
-                AQI = max(I_NO2, I_PM2.5, I_AOD)
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 8px;">
-                Identifies industrial emission corridors and atmospheric pollution hotspots across metropolitan areas.
+            <p style="font-size: 0.82rem; color: #94a3b8;">
+                Monitors air quality indices, industrial plume dispersion corridors, and environmental pollution hotspots.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -520,30 +591,21 @@ with main_tab_eo:
                 <strong>Spatial Resolution:</strong> 100m (Resampled to 30m) &nbsp;|&nbsp; <strong>Revisit:</strong> 8 Days<br>
                 <strong>Bands Utilized:</strong> Band 10 (Thermal Infrared, 10.6 - 11.19 µm)
             </p>
-            <p style="font-size: 0.88rem; color: #94a3b8;">
-                <strong>Land Surface Temperature (LST) & SUHI:</strong>
-            </p>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 6px; font-family: monospace; color: #38bdf8;">
-                LST = T_b / [1 + (λ · T_b / ρ) · ln(ε)]
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 8px;">
-                Computes surface brightness temperature, emissivity corrections, and Surface Urban Heat Island (SUHI) anomalies.
+            <p style="font-size: 0.82rem; color: #94a3b8;">
+                Calibrates surface brightness temperatures, emissivity corrections, and Surface Urban Heat Island (SUHI) anomalies.
             </p>
         </div>
         """, unsafe_allow_html=True)
 
         st.markdown("""
         <div class="feature-card">
-            <h4 style="color: #60a5fa; margin-top: 0;">💧 SCS-CN Sponge City Hydrology</h4>
+            <h4 style="color: #60a5fa; margin-top: 0;">🏔️ NASADEM & Hydrodynamic Topography</h4>
             <p style="font-size: 0.88rem; color: #cbd5e1;">
-                <strong>Model:</strong> USDA Natural Resources Conservation Service (NRCS) Curve Number<br>
-                <strong>Parameters:</strong> 24-Hour Design Storm (P = 120mm), Hydrologic Soil Groups A-D
+                <strong>Elevation Resolution:</strong> 30m Global Grid &nbsp;|&nbsp; <strong>Datum:</strong> EGM96 Geoid<br>
+                <strong>Hydrology Model:</strong> USDA NRCS Curve Number (SCS-CN)
             </p>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 8px 12px; border-radius: 6px; font-family: monospace; color: #38bdf8;">
-                Q = (P - 0.2S)² / (P + 0.8S), where S = (25400 / CN) - 254
-            </div>
-            <p style="font-size: 0.82rem; color: #94a3b8; margin-top: 8px;">
-                Models direct stormwater surface runoff depth and bioretention swale infiltration capacities.
+            <p style="font-size: 0.82rem; color: #94a3b8;">
+                Derives topographical slope gradients, aspect azimuths, stormwater runoff depths, and 25-year flood inundation zones.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -628,43 +690,31 @@ with main_tab_export:
         st.markdown("##### 🛰️ 2. Georeferenced Satellite GeoTIFF Raster (.tif)")
         st.caption("Standard 32-bit float GeoTIFF with embedded WGS84 (EPSG:4326) CRS & Affine Transform for QGIS, ArcGIS Pro, and Google Earth Engine.")
         
+        # Default index selection based on active workflow
+        raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
+        raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
+        
         default_idx = 0
         if any("lst_heat_island" in k for k in metrics_dict.keys()):
-            default_idx = 1
+            default_idx = raster_keys.index("lst")
         elif any("sponge_city" in k for k in metrics_dict.keys()):
-            default_idx = 2
+            default_idx = raster_keys.index("sponge_runoff")
         elif any("flood_hazard" in k for k in metrics_dict.keys()):
-            default_idx = 3
+            default_idx = raster_keys.index("flood_depth")
         elif any("lulc_change" in k for k in metrics_dict.keys()):
-            default_idx = 4
+            default_idx = raster_keys.index("lulc")
 
-        raster_options = [
-            "🌿 Sentinel-2 NDVI Canopy Index (Float32, -1 to +1)",
-            "🔥 Landsat-9 Land Surface Temperature (LST °C)",
-            "💧 SCS-CN Sponge City Direct Surface Runoff (mm)",
-            "🌊 DEM 25-Year Coastal / Deltaic Flood Inundation (m)",
-            "🔄 Multi-Temporal LULC Classification (Categorical Classes)"
-        ]
-
-        raster_opt = st.selectbox(
+        selected_export_label = st.selectbox(
             "Select Raster Band to Export:",
-            raster_options,
+            raster_labels,
             index=default_idx,
             key="select_raster_export_band"
         )
         
-        raster_type_map = {
-            "🌿 Sentinel-2 NDVI Canopy Index (Float32, -1 to +1)": "ndvi",
-            "🔥 Landsat-9 Land Surface Temperature (LST °C)": "lst",
-            "💧 SCS-CN Sponge City Direct Surface Runoff (mm)": "sponge_runoff",
-            "🌊 DEM 25-Year Coastal / Deltaic Flood Inundation (m)": "flood_depth",
-            "🔄 Multi-Temporal LULC Classification (Categorical Classes)": "lulc"
-        }
-        
-        selected_raster_type = raster_type_map[raster_opt]
+        selected_export_key = raster_keys[raster_labels.index(selected_export_label)]
         geotiff_bytes, geotiff_filename, raster_meta = generate_geotiff_raster(
             target_location=loc_name,
-            raster_type=selected_raster_type,
+            raster_type=selected_export_key,
             metrics=metrics_dict
         )
         
@@ -676,8 +726,9 @@ with main_tab_export:
             file_name=geotiff_filename,
             mime="image/tiff",
             use_container_width=True,
-            key="btn_download_geotiff"
+            key=f"btn_download_geotiff_hub_{selected_export_key}"
         )
+
 
         st.markdown("---")
         
