@@ -1,41 +1,30 @@
-"""
-Dynamic Multi-Index Analytics Engine for GeoLab-Agent.
-Calculates specialized physical indicators, KPI cards, percentile distributions,
-and tailored policy insights for 13 Earth Observation, terrain, and hydrological indices.
-"""
+from __future__ import annotations
 
 import io
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple, Union
 import numpy as np  # type: ignore
 import rasterio  # type: ignore
 from src.tools.raster_exporter import generate_geotiff_raster, AVAILABLE_RASTER_TYPES
 
 
 def compute_detailed_index_analytics(
-    raster_type: str,
-    target_location: str = "Khulna",
-    custom_bbox: Optional[List[float]] = None,
+    raster_type: str = "ndvi",
+    target_location: Optional[str] = "Khulna",
+    custom_bbox: Optional[Union[List[float], Tuple[float, float, float, float]]] = None,
     custom_aoi_data: Optional[Dict[str, Any]] = None,
     metrics: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Computes comprehensive, dynamic indicators and policy insights tailored specifically
     to the chosen remote sensing or terrain index.
-
-    Returns:
-        Dict containing:
-            - raster_type: The index key.
-            - title: Full product display title.
-            - sensor: Sensor and platform name.
-            - formula: Mathematical formulation.
-            - units: Physical measurement units.
-            - kpis: List of 4 specialized metric cards [ {title, value, delta, benchmark} ].
-            - stats: Summary statistics (min, max, mean, median, std, p10, p90).
-            - distribution: Classification breakdown or histogram bins.
-            - detailed_synthesis: Multi-paragraph scientific Markdown synthesis.
-            - policy_recommendations: Bulleted municipal policy interventions.
     """
     metrics = metrics or {}
+    if not raster_type or raster_type not in AVAILABLE_RASTER_TYPES:
+        raster_type = "ndvi"
+        
+    if not target_location or not isinstance(target_location, str) or not target_location.strip():
+        target_location = "Khulna"
+
     type_meta = AVAILABLE_RASTER_TYPES.get(raster_type, AVAILABLE_RASTER_TYPES["ndvi"])
 
     # Generate GeoTIFF bytes and read real 2D array
@@ -43,8 +32,9 @@ def compute_detailed_index_analytics(
         target_location=target_location,
         raster_type=raster_type,
         metrics=metrics,
-        custom_bbox=tuple(custom_bbox) if custom_bbox else None
+        custom_bbox=tuple(custom_bbox) if (custom_bbox and len(custom_bbox) == 4) else None
     )
+
 
     with rasterio.open(io.BytesIO(tif_bytes)) as ds:
         arr = ds.read(1).astype(float)

@@ -1,17 +1,13 @@
-"""
-Raster Exporter Module for GeoLab-Agent.
-Generates genuine, georeferenced GeoTIFF (.tif) raster datasets with WGS84 (EPSG:4326) CRS
-for remote sensing (NDVI, NDWI, NDBI, BSI, EVI, LST, LULC), terrain modeling (DEM, Slope, Aspect),
-hydrology (Flow Accumulation, SCS-CN Runoff), and flood hazard analytics.
-Compatible with QGIS, ArcGIS Pro, Google Earth Engine, and GDAL/Rasterio pipelines.
-"""
+from __future__ import annotations
 
 import io
+from typing import Dict, Any, Tuple, Optional, Union
 import numpy as np  # type: ignore
 import rasterio  # type: ignore
 from rasterio.io import MemoryFile  # type: ignore
 from rasterio.transform import from_bounds  # type: ignore
 from src.tools.geocoder import resolve_location_coordinates
+
 
 
 
@@ -124,40 +120,27 @@ AVAILABLE_RASTER_TYPES = {
 
 
 def generate_geotiff_raster(
-    target_location: str = "Khulna",
+    target_location: Optional[str] = "Khulna",
     raster_type: str = "auto",
-    metrics: dict = None,
-    custom_bbox: tuple = None,
+    metrics: Optional[Dict[str, Any]] = None,
+    custom_bbox: Optional[Union[Tuple[float, float, float, float], list]] = None,
     width: int = 150,
     height: int = 150
-) -> tuple[bytes, str, dict]:
+) -> Tuple[bytes, str, Dict[str, Any]]:
     """
     Generates a georeferenced GeoTIFF raster dataset as in-memory bytes.
-
-    Args:
-        target_location: Name of the target municipality or metropolitan area.
-        raster_type: 'lulc', 'ndvi', 'ndwi', 'ndbi', 'dem', 'slope', 'aspect',
-                     'flow_accumulation', 'bsi', 'evi', 'lst', 'sponge_runoff',
-                     'flood_depth', or 'auto'.
-        metrics: Optional collected metrics dict to calibrate pixel distributions.
-        custom_bbox: Optional custom bounding box [west, south, east, north] (e.g. from uploaded shapefile).
-        width: Grid horizontal pixel dimension.
-        height: Grid vertical pixel dimension.
-
-    Returns:
-        tuple containing:
-            - geotiff_bytes: Binary data of the .tif file.
-            - default_filename: Descriptive filename for export.
-            - metadata: Spatial properties (CRS, resolution, bounds, dtype, statistics).
     """
     metrics = metrics or {}
+    if not target_location or not isinstance(target_location, str) or not target_location.strip():
+        target_location = "Khulna"
 
-    if custom_bbox is not None and len(custom_bbox) == 4:
-        west, south, east, north = custom_bbox
+    if custom_bbox is not None and len(custom_bbox) == 4 and all(isinstance(v, (int, float)) for v in custom_bbox):
+        west, south, east, north = [float(v) for v in custom_bbox]
     else:
         geo_data = resolve_location_coordinates(target_location)
         bbox = geo_data["bbox"]
         west, south, east, north = bbox
+
 
     # Adaptive Grid Resolution Engine for optimal performance & low memory
     deg_span = max(abs(east - west), abs(north - south))

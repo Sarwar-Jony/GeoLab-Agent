@@ -1,13 +1,9 @@
-"""
-Universal Geocoding & Spatial Location Resolution Module for GeoLab-Agent.
-Resolves arbitrary location names (cities, districts, upazilas, international regions)
-into exact Latitude, Longitude, and Bounding Boxes (EPSG:4326).
-Combines a high-speed curated spatial registry with live OpenStreetMap (OSM) Nominatim API querying.
-"""
+from __future__ import annotations
 
 import re
 import requests
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional, Union
+
 
 
 # Curated High-Precision Spatial Registry (All 64 Bangladesh Districts + Major Global Cities)
@@ -87,13 +83,17 @@ def extract_location_from_text(query: str) -> str:
     return "Khulna"
 
 
-def resolve_location_coordinates(location_name: str) -> Dict[str, Any]:
+def resolve_location_coordinates(location_name: Optional[str] = "Khulna") -> Dict[str, Any]:
     """
     Resolves a location name into latitude, longitude, bounding box, and formatted address.
     Checks curated registry first, then queries OSM Nominatim API with safe fallback.
     """
+    if not location_name or not isinstance(location_name, str) or not location_name.strip():
+        location_name = "Khulna"
+        
     loc_clean = location_name.strip()
     loc_lower = loc_clean.lower()
+
 
     # 1. High-Speed Curated Registry Check
     for k, data in CURATED_LOCATIONS.items():
