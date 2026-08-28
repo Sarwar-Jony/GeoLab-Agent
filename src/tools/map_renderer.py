@@ -112,11 +112,11 @@ def build_interactive_folium_map(
                 # Discrete classification coloring (1:Water, 2:Forest, 3:Agri, 4:Urban, 5:Bare)
                 rgba_img = np.zeros((arr.shape[0], arr.shape[1], 4), dtype=np.uint8)
                 color_map = {
-                    1: [0, 119, 190, 200],   # Water (Blue)
-                    2: [27, 94, 32, 200],    # Forest (Dark Green)
-                    3: [139, 195, 74, 200],  # Agri (Light Green)
-                    4: [211, 47, 47, 210],   # Built-up (Red)
-                    5: [215, 204, 200, 190]  # Bare (Tan)
+                    1: [0, 119, 190, 220],   # Water (Blue)
+                    2: [27, 94, 32, 220],    # Forest (Dark Green)
+                    3: [139, 195, 74, 220],  # Agri (Light Green)
+                    4: [211, 47, 47, 230],   # Built-up (Red)
+                    5: [215, 204, 200, 210]  # Bare (Tan)
                 }
                 for class_val, rgba in color_map.items():
                     mask = (arr == class_val)
@@ -128,8 +128,8 @@ def build_interactive_folium_map(
                     vmax += 1.0
                 norm_arr = np.clip((arr - vmin) / (vmax - vmin), 0.0, 1.0)
                 rgba_img = (cmap(norm_arr) * 255).astype(np.uint8)
-                # Set slight transparency
-                rgba_img[:, :, 3] = 175
+                # Set vibrant visibility opacity
+                rgba_img[:, :, 3] = 205
 
             buf = io.BytesIO()
             mpimg.imsave(buf, rgba_img, format="png")
@@ -139,15 +139,17 @@ def build_interactive_folium_map(
             folium.raster_layers.ImageOverlay(
                 image=b64_url,
                 bounds=[[south, west], [north, east]],
-                opacity=0.75,
+                opacity=0.82,
                 name=f"🛰️ {raster_display_name}",
                 interactive=True,
                 cross_origin=False,
                 zindex=2
             ).add_to(m)
 
-        except Exception as e:
-            # Fallback quietly if raster generation has issue
+            # Fit map to bounds so user immediately sees the visual raster overlay
+            m.fit_bounds([[south, west], [north, east]])
+
+        except Exception:
             pass
 
     # Marker for city center

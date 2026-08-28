@@ -166,7 +166,26 @@ if "custom_aoi_data" not in st.session_state:
 if "selected_raster_idx" not in st.session_state:
     st.session_state.selected_raster_idx = "ndvi"
 
-# Sidebar: 13-Index Multi-Spectral & Terrain Raster Analysis Panel
+# Standard 13 Raster Analysis Options (Pure English)
+RASTER_OPTIONS_EN = {
+    "lulc": "🔄 Land Use / Land Cover (5-Class LULC)",
+    "ndvi": "🌿 Sentinel-2 NDVI (Vegetation Canopy Index)",
+    "ndwi": "💧 Sentinel-2 NDWI (Water Index & Wetlands)",
+    "ndbi": "🏢 Sentinel-2/Landsat NDBI (Built-up Index)",
+    "dem": "🏔️ NASADEM / SRTM 30m Digital Elevation (DEM)",
+    "slope": "📐 Terrain Slope Gradient Analysis (Slope 0°-90°)",
+    "aspect": "🧭 Terrain Aspect & Solar Azimuth (Aspect 0°-360°)",
+    "flow_accumulation": "🌊 Hydrological Flow Accumulation (Stream Network)",
+    "bsi": "🏜️ Sentinel-2 BSI (Bare Soil & Degradation Index)",
+    "evi": "🌾 Sentinel-2 EVI (Enhanced Vegetation Index)",
+    "lst": "🔥 Landsat-9 Land Surface Temperature (LST °C)",
+    "sponge_runoff": "💧 SCS-CN Stormwater Surface Runoff Depth (mm)",
+    "flood_depth": "🌊 Coastal & Deltaic Flood Inundation Grid (m)"
+}
+
+raster_keys = list(RASTER_OPTIONS_EN.keys())
+
+# Sidebar: 13-Index Multi-Spectral & Terrain Analysis Panel (100% English)
 with st.sidebar:
     st.markdown("""
     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
@@ -178,32 +197,15 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 🛰️ ১৩টি রাস্টার অ্যানালাইসিস ইনডেক্স")
+    st.markdown("### 🛰️ Remote Sensing & Terrain Analysis")
     
-    raster_options = {
-        "lulc": "🔄 LULC (Land Use / Land Cover ৫-ক্লাস)",
-        "ndvi": "🌿 NDVI (Sentinel-2 ক্যানোপি ও ভেজিটেশন)",
-        "ndwi": "💧 NDWI (Sentinel-2 জলাশয় ও ড্রেনেজ চ্যানেল)",
-        "ndbi": "🏢 NDBI (বিল্ট-আপ কংক্রিট ও আরবান স্প্রল)",
-        "dem": "🏔️ DEM (NASADEM / SRTM ৩০ মি উচ্চতা)",
-        "slope": "📐 Slope (ভূমির ঢাল — ০° থেকে ৯০°)",
-        "aspect": "🧭 Aspect (সোলার এজিমুথ ও ঢালের দিক)",
-        "flow_accumulation": "🌊 Flow Accumulation (ড্রেনেজ ও স্ট্রিম নেটওয়ার্ক)",
-        "bsi": "🏜️ BSI (উন্মুক্ত মাটি ও ল্যান্ড ডিগ্রেডেশন)",
-        "evi": "🌾 EVI (এনহ্যান্সড ভেজিটেশন ইনডেক্স)",
-        "lst": "🔥 LST (ল্যান্ড সারফেস টেম্পারেচার °C)",
-        "sponge_runoff": "💧 SCS-CN Runoff (সারফেস রানঅফ গভীরতা mm)",
-        "flood_depth": "🌊 Coastal Flood (উপকূলীয় প্লাবন গভীরতা m)"
-    }
-    
-    raster_keys = list(raster_options.keys())
     default_idx_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 1
     
     selected_raster_key = st.selectbox(
-        "ম্যাপে প্রদর্শনের জন্য অ্যানালাইসিস সিলেক্ট করুন:",
+        "Select Active Analysis Layer to Display on Map:",
         raster_keys,
         index=default_idx_pos,
-        format_func=lambda k: raster_options[k],
+        format_func=lambda k: RASTER_OPTIONS_EN[k],
         key="sidebar_raster_selector"
     )
     st.session_state.selected_raster_idx = selected_raster_key
@@ -238,13 +240,13 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# Header Section
+# Header Section (Pure English)
 st.markdown("""
 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
     <div>
         <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #f8fafc;">Autonomous Spatial Planning & GeoAI Studio</h1>
         <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.95rem;">
-            Upload your own Study Area Shapefile or search any location worldwide to orchestrate Earth Observation and Policy Analytics
+            Upload your own Study Area Boundary (Shapefile/GeoJSON) or search any location worldwide to orchestrate Earth Observation and Policy Analytics
         </p>
     </div>
     <div>
@@ -306,7 +308,7 @@ else:
             parsed_aoi = process_uploaded_aoi(uploaded_aoi_file.getvalue(), uploaded_aoi_file.name)
             if parsed_aoi["success"]:
                 st.session_state.custom_aoi_data = parsed_aoi
-                st.success(f"✓ Successfully parsed **{parsed_aoi['aoi_name']}** ({parsed_aoi['format']}) | **Area:** {parsed_aoi['area_km2']:,} km² ({parsed_aoi['area_ha']:,} ha) | **Features:** {parsed_aoi['feature_count']}")
+                st.success(f"✓ Successfully loaded **{parsed_aoi['aoi_name']}** ({parsed_aoi['format']}) | **Area:** {parsed_aoi['area_km2']:,} km² ({parsed_aoi['area_ha']:,} ha) | **Features:** {parsed_aoi['feature_count']}")
                 if run_aoi_btn:
                     query_text = f"Analyze multi-criteria urban resilience, land cover, and vegetative canopy for {parsed_aoi['aoi_name']}"
                     with st.spinner(f"🤖 Orchestrating Earth Observation and GeoAI for custom study area '{parsed_aoi['aoi_name']}'..."):
@@ -326,10 +328,10 @@ custom_aoi = st.session_state.custom_aoi_data
 
 
 # ==============================================================================
-# TOP-LEVEL WEBSITE NAVIGATION TABS
+# TOP-LEVEL WEBSITE NAVIGATION TABS (PURE ENGLISH)
 # ==============================================================================
 main_tab_studio, main_tab_whatif, main_tab_eo, main_tab_export, main_tab_methodology, main_tab_about = st.tabs([
-    "🌍 Spatial Studio & Map",
+    "🌍 Spatial Studio & Visual Map",
     "🧪 Digital Twin 'What-If' Sandbox",
     "🛰️ Earth Observation Explorer",
     "💾 GIS & Municipal Export Hub",
@@ -339,7 +341,7 @@ main_tab_studio, main_tab_whatif, main_tab_eo, main_tab_export, main_tab_methodo
 
 
 # ==============================================================================
-# TAB 1: SPATIAL PLANNING STUDIO (LIVE MAP & POLICY WORKSPACE)
+# TAB 1: SPATIAL PLANNING STUDIO (VISUAL MAP & POLICY WORKSPACE)
 # ==============================================================================
 with main_tab_studio:
     if result:
@@ -393,7 +395,7 @@ with main_tab_studio:
             </div>
             """, unsafe_allow_html=True)
 
-        # Two-Column Studio Layout: Left (Policy Report & Trace) | Right (Interactive Map)
+        # Two-Column Studio Layout: Left (Policy Report & Trace) | Right (Interactive Visual Map)
         col_left, col_right = st.columns([1, 1], gap="medium")
 
         with col_left:
@@ -432,17 +434,22 @@ with main_tab_studio:
             layers = result.get("geojson_layers", [])
             custom_bbox_vals = custom_aoi["bbox"] if custom_aoi else None
             
-            active_raster_label = raster_options.get(st.session_state.selected_raster_idx, st.session_state.selected_raster_idx)
+            active_raster_name = RASTER_OPTIONS_EN.get(st.session_state.selected_raster_idx, st.session_state.selected_raster_idx)
             
+            # Map Top Control Bar
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <h3 style="margin: 0; font-size: 1.15rem; color: #f8fafc;">🗺️ Interactive Geospatial Map</h3>
-                <span style="font-size: 0.8rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 3px 10px; border-radius: 6px; font-weight: 600;">
-                    {active_raster_label}
-                </span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 8px 14px;">
+                <div>
+                    <span style="font-size: 0.95rem; font-weight: 700; color: #f8fafc;">🗺️ Visual Map: </span>
+                    <span style="font-size: 0.9rem; color: #38bdf8; font-weight: 600;">{loc_display}</span>
+                </div>
+                <div style="font-size: 0.8rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 600;">
+                    🛰️ Active Layer: {active_raster_name.split(' (')[0]}
+                </div>
             </div>
             """, unsafe_allow_html=True)
             
+            # Render Visual Map with unique key to guarantee reactive re-rendering
             map_obj = build_interactive_folium_map(
                 center_coords=center,
                 zoom_start=13,
@@ -454,12 +461,18 @@ with main_tab_studio:
             )
             
             if hasattr(map_obj, "get_root"):
-                st_folium(map_obj, width="100%", height=620, returned_objects=[])
+                st_folium(
+                    map_obj,
+                    width="100%",
+                    height=640,
+                    returned_objects=[],
+                    key=f"visual_folium_map_{loc_display}_{st.session_state.selected_raster_idx}"
+                )
             else:
                 st.info("🗺️ Multi-Layer Map Layer Metadata Available.")
                 st.json(map_obj)
             
-            st.caption(f"💡 *ম্যাপে বর্তমানে **{active_raster_label}** রাস্টার লেয়ার প্রদর্শন করা হচ্ছে। উপরের ডানপাশের লেয়ার কন্ট্রোল থেকে স্যাটেলাইট বা ডার্ক মোড বেসম্যাপ টগল করতে পারেন।*")
+            st.caption(f"💡 *Displaying **{active_raster_name}** colormap overlay. Toggle between Dark Matter, Satellite Imagery, and OpenStreetMap from the top-right layer control.*")
 
 
 # ==============================================================================
@@ -551,7 +564,6 @@ with main_tab_eo:
         
         st.markdown(f"#### 🔬 Select & Compute Raster Index for **{loc_name}**:")
         
-        raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
         
         default_eo_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 0
@@ -632,7 +644,7 @@ with main_tab_eo:
             key=f"btn_download_eo_tab_{selected_key}"
         )
         
-        st.caption(f"✓ Georeferenced WGS84 GeoTIFF ready for instant drag-and-drop into **QGIS**, **ArcGIS Pro**, **Google Earth Engine**, or **Python Rasterio**.")
+        st.caption("✓ Georeferenced WGS84 GeoTIFF ready for instant drag-and-drop into **QGIS**, **ArcGIS Pro**, **Google Earth Engine**, or **Python Rasterio**.")
 
     st.markdown("---")
     st.markdown("#### 📚 Integrated Satellite Constellations & Sensors")
@@ -773,9 +785,7 @@ with main_tab_export:
         st.markdown("##### 🛰️ 2. Georeferenced Satellite GeoTIFF Raster (.tif)")
         st.caption("Standard 32-bit float GeoTIFF with embedded WGS84 (EPSG:4326) CRS & Affine Transform for QGIS, ArcGIS Pro, and Google Earth Engine.")
         
-        raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
-        
         default_idx = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 0
 
         selected_export_label = st.selectbox(
