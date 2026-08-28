@@ -96,6 +96,13 @@ Provides complete data interoperability for researchers and municipal authoritie
 * **📄 Printable Municipal Brief (`.html` / PDF):** Formatted executive report with institutional KUET URP branding and compliance tables.
 * **📑 Markdown Policy Brief (`.md`):** Complete structured text for academic documentation.
 
+### 🌐 6. Universal Geocoding & Global Spatial Search
+Enables effortless natural language querying for arbitrary locations worldwide:
+* **All 64 Bangladesh Districts & Upazilas:** Instant high-speed spatial resolution for Khulna, Dhaka, Chittagong, Sylhet, Rangpur, Cox's Bazar, Mymensingh, Rajshahi, Barisal, Bogura, and more.
+* **Global Metropolitan Resolution:** Live dynamic fallback querying OpenStreetMap (OSM) Nominatim to automatically extract bounding boxes and center coordinates for international cities (e.g., Tokyo, London, Paris, Singapore, New York).
+* **Automatic Bounding Box Calibration:** Remote sensing rasters and vector network simulations dynamically align with the exact geographic bounds of the searched locality.
+
+
 
 ---
 

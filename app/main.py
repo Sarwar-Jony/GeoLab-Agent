@@ -137,12 +137,14 @@ with st.sidebar:
     scenarios = {
         "🌿 Khulna: Heat Island & Green Space Canopy": "Analyze urban heat island intensity and green space canopy deficit for Khulna city",
         "🚶 Dhaka: 15-Minute City & Walkability": "Perform 15-minute city walkability isochrone and transit access audit for Dhaka",
-        "🔄 Khulna: Multi-Temporal LULC & Urban Sprawl": "Analyze urban sprawl and land use change dynamics for Khulna",
-        "💧 Chittagong: Sponge City & Stormwater Runoff": "Simulate sponge city stormwater runoff and drainage retention for Chittagong",
-        "🏥 Dhaka: Healthcare Spatial Equity & 2SFCA": "Audit spatial equity and healthcare clinic accessibility deficit for Dhaka",
+        "💧 Cox's Bazar: Sponge City & Coastal Stormwater": "Simulate sponge city stormwater runoff and drainage retention for Cox's Bazar",
+        "🌲 Sylhet: Urban Green Canopy & Microclimate": "Audit urban vegetative canopy cover and thermal microclimate for Sylhet",
+        "🏥 Rangpur: Healthcare Spatial Equity & 2SFCA": "Audit spatial equity and healthcare clinic accessibility deficit for Rangpur",
         "🌊 Chittagong: Coastal Flood & Tidal Hazard": "Simulate 25-year flood inundation and zoning setback vulnerability for Chittagong",
-        "🏭 Khulna: Industrial Air Pollution (NO2/PM2.5)": "Evaluate atmospheric air pollution and industrial emission corridors for Khulna",
-        "🏙️ Rajshahi: Comprehensive Multi-Criteria Audit": "Conduct a comprehensive urban planning and environmental resilience audit for Rajshahi"
+        "🔄 Rajshahi: Multi-Temporal LULC & Urban Sprawl": "Analyze urban sprawl and land use change dynamics for Rajshahi",
+        "🏭 Mymensingh: Atmospheric Air Pollution (NO2/PM2.5)": "Evaluate atmospheric air pollution and industrial emission corridors for Mymensingh",
+        "🌐 Tokyo: Global 15-Minute Walkability Benchmark": "Perform 15-minute city walkability isochrone and transit access audit for Tokyo",
+        "🏙️ London: Comprehensive Multi-Criteria Urban Audit": "Conduct a comprehensive urban planning and environmental resilience audit for London"
     }
     
     selected_scenario = st.selectbox("Select a benchmark scenario:", list(scenarios.keys()))
@@ -153,6 +155,7 @@ with st.sidebar:
     st.markdown("### ⚙️ System Configuration")
     api_status = "🟢 Active (Configured)" if os.environ.get("GEMINI_API_KEY") else "🟡 Synthetic / Sandbox Mode"
     st.caption(f"**LLM Engine:** Gemini 2.5 Flash ({api_status})")
+    st.caption("**Geocoding:** Universal OSM Nominatim & Curated Registry")
     st.caption("**Earth Observation:** Sentinel-2, Landsat-9, Sentinel-5P")
     st.caption("**Network Engine:** OSMnx & Graph Theory")
     st.caption("**Hydrology:** SCS-CN Sponge City Model")
@@ -173,7 +176,7 @@ st.markdown("""
     <div>
         <h1 style="margin: 0; font-size: 1.8rem; font-weight: 800; color: #f8fafc;">Autonomous Spatial Planning & GeoAI Studio</h1>
         <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.95rem;">
-            Natural Language Multi-Agent Orchestration for Earth Observation, Urban Resilience, and Policy Synthesis
+            Search any city, district, or region worldwide to orchestrate Earth Observation, Urban Resilience, and Policy Analytics
         </p>
     </div>
     <div>
@@ -182,26 +185,49 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Query Input Bar
+# Universal Spatial Search Bar
 with st.container():
     col_input, col_btn = st.columns([5, 1])
     with col_input:
         user_query = st.text_input(
-            "Enter your Spatial Planning or Remote Sensing query:",
+            "Search any place or enter a Spatial Planning query:",
             value=st.session_state.current_query,
-            placeholder="e.g., Audit urban heat island intensity and pedestrian accessibility for Khulna...",
+            placeholder="Search any place, e.g., 'Sylhet heat island', 'Cox\'s Bazar runoff', 'Rangpur 15-min walkability', 'Tokyo resilience'...",
             label_visibility="collapsed"
         )
     with col_btn:
-        run_btn = st.button("🚀 Run Agent", use_container_width=True)
+        run_btn = st.button("🔍 Search & Run", use_container_width=True)
 
 # Execute Workflow on Button Click or Initial Run
 if run_btn or st.session_state.agent_result is None:
-    with st.spinner("🤖 Multi-Agent Engine orchestrating GEE, OSMnx, Hydrology, and Policy Critic..."):
+    with st.spinner("🤖 Multi-Agent Engine geocoding location and orchestrating GEE, OSMnx, Hydrology..."):
         st.session_state.agent_result = run_geolab_workflow(user_query)
 
 
 result = st.session_state.agent_result
+
+# Location & Spatial Intelligence Badge
+if result:
+    loc_display = result.get("target_location", "City")
+    dom_display = result.get("identified_domain", "Urban Planning")
+    coords_display = result.get("center_coordinates", [22.8456, 89.5403])
+    lat_str = f"{coords_display[0]:.4f}° N" if coords_display[0] >= 0 else f"{abs(coords_display[0]):.4f}° S"
+    lon_str = f"{coords_display[1]:.4f}° E" if coords_display[1] >= 0 else f"{abs(coords_display[1]):.4f}° W"
+    
+    st.markdown(f"""
+    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 16px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+            <span style="color: #38bdf8; font-weight: 700; font-size: 0.95rem;">📍 Target Location:</span>
+            <strong style="color: #f8fafc; font-size: 1.05rem; margin-left: 6px;">{loc_display}</strong>
+            <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">({lat_str}, {lon_str})</span>
+        </div>
+        <div>
+            <span style="color: #38bdf8; font-weight: 700; font-size: 0.95rem;">🔬 Domain:</span>
+            <span style="color: #e2e8f0; font-size: 0.9rem; margin-left: 6px; background: rgba(56, 189, 248, 0.15); padding: 3px 8px; border-radius: 4px;">{dom_display}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # Top KPI Summary Cards
 if result and result.get("collected_metrics"):

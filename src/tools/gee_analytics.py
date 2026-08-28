@@ -8,23 +8,36 @@ import os
 import math
 import random
 from typing import Dict, Any, List, Optional
-# Coordinates registry for major urban case studies
-CITY_COORDINATES = {
-    "khulna": {"lat": 22.8456, "lon": 89.5403, "area_km2": 45.65, "population": 718000},
-    "dhaka": {"lat": 23.8103, "lon": 90.4125, "area_km2": 306.4, "population": 10200000},
-    "chittagong": {"lat": 22.3569, "lon": 91.7832, "area_km2": 168.0, "population": 3200000},
-    "rajshahi": {"lat": 24.3745, "lon": 88.6042, "area_km2": 96.68, "population": 450000},
-    "sylhet": {"lat": 24.8949, "lon": 91.8687, "area_km2": 26.50, "population": 530000},
-}
+from src.tools.geocoder import resolve_location_coordinates
 
 
 def _get_city_meta(location_name: str) -> Dict[str, Any]:
-    key = location_name.lower().strip()
-    for city_key, meta in CITY_COORDINATES.items():
-        if city_key in key:
-            return {"name": city_key.capitalize(), **meta}
-    # Default fallback to Khulna (KUET hometown context)
-    return {"name": location_name.capitalize(), "lat": 22.8456, "lon": 89.5403, "area_km2": 45.0, "population": 500000}
+    """
+    Dynamically retrieves location coordinates, bounding box, and estimates population/area.
+    """
+    geo_data = resolve_location_coordinates(location_name)
+    lat, lon = geo_data["lat"], geo_data["lon"]
+    bbox = geo_data["bbox"]
+
+    # Calculate approx area in km2 based on bounding box if available
+    width_km = abs(bbox[2] - bbox[0]) * 111.0 * math.cos(math.radians(lat))
+    height_km = abs(bbox[3] - bbox[1]) * 111.0
+    calc_area = max(15.0, round(width_km * height_km, 2))
+    
+    # Estimate population proportional to urban area
+    calc_pop = int(calc_area * 12500)
+
+    return {
+        "name": geo_data["location_name"],
+        "display_name": geo_data["display_name"],
+        "lat": lat,
+        "lon": lon,
+        "bbox": bbox,
+        "area_km2": calc_area,
+        "population": calc_pop,
+        "source": geo_data["source"]
+    }
+
 
 
 def compute_ndvi_statistics(

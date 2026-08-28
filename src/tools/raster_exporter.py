@@ -10,27 +10,8 @@ import numpy as np
 import rasterio
 from rasterio.io import MemoryFile
 from rasterio.transform import from_bounds
+from src.tools.geocoder import resolve_location_coordinates
 
-
-# Standard Bounding Box Lookups [west, south, east, north] (WGS84 EPSG:4326)
-CITY_BBOXES = {
-    "khulna": [89.50, 22.77, 89.60, 22.88],
-    "dhaka": [90.33, 23.70, 90.46, 23.85],
-    "chittagong": [91.75, 22.30, 91.89, 22.42],
-    "rajshahi": [88.55, 24.33, 88.66, 24.41],
-    "sylhet": [91.82, 24.85, 91.93, 24.95],
-    "barisal": [90.32, 22.66, 90.41, 22.74],
-    "comilla": [91.14, 23.42, 91.23, 23.51]
-}
-
-
-def get_city_bbox(target_location: str) -> list[float]:
-    """Retrieve bounding box [west, south, east, north] for a location or fallback to Khulna."""
-    loc_key = target_location.lower().strip()
-    for k, v in CITY_BBOXES.items():
-        if k in loc_key:
-            return v
-    return [89.50, 22.77, 89.60, 22.88]
 
 
 def generate_geotiff_raster(
@@ -57,9 +38,11 @@ def generate_geotiff_raster(
             - metadata: Spatial properties (CRS, resolution, bounds, dtype).
     """
     metrics = metrics or {}
-    bbox = get_city_bbox(target_location)
+    geo_data = resolve_location_coordinates(target_location)
+    bbox = geo_data["bbox"]
     west, south, east, north = bbox
     transform = from_bounds(west, south, east, north, width, height)
+
 
     # Coordinate meshgrid for realistic spatial distribution
     x = np.linspace(-2, 2, width)

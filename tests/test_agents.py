@@ -55,6 +55,29 @@ class TestMultiAgentWorkflow(unittest.TestCase):
         self.assertEqual(res["target_location"], "Chittagong")
         self.assertIn("compute_sponge_city_runoff", res["tool_sequence"])
 
+    def test_arbitrary_search_sylhet(self):
+        query = "Audit urban vegetative canopy cover and thermal microclimate for Sylhet"
+        res = run_geolab_workflow(query)
+        self.assertEqual(res["target_location"], "Sylhet")
+        self.assertAlmostEqual(res["center_coordinates"][0], 24.8949, places=2)
+        self.assertAlmostEqual(res["center_coordinates"][1], 91.8687, places=2)
+        self.assertGreater(len(res["tool_results"]), 0)
+
+    def test_arbitrary_search_coxs_bazar(self):
+        query = "Simulate sponge city stormwater runoff for Cox's Bazar"
+        res = run_geolab_workflow(query)
+        self.assertIn("Cox", res["target_location"])
+        self.assertAlmostEqual(res["center_coordinates"][0], 21.4272, places=2)
+        self.assertGreater(len(res["tool_results"]), 0)
+
+    def test_arbitrary_search_tokyo(self):
+        query = "Perform 15-minute city walkability audit for Tokyo"
+        res = run_geolab_workflow(query)
+        self.assertEqual(res["target_location"], "Tokyo")
+        self.assertAlmostEqual(res["center_coordinates"][0], 35.6762, places=2)
+        self.assertGreater(len(res["tool_results"]), 0)
+
+
 
 
 if __name__ == "__main__":

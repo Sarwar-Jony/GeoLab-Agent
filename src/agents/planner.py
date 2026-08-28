@@ -9,6 +9,7 @@ import os
 import json
 from typing import Dict, Any, List
 from .state import AgentState
+from src.tools.geocoder import extract_location_from_text, resolve_location_coordinates
 
 # Available tool registry documentation for the Planner Agent
 AVAILABLE_TOOLS = {
@@ -29,7 +30,7 @@ AVAILABLE_TOOLS = {
 def plan_spatial_workflow(state: AgentState) -> Dict[str, Any]:
     """
     LangGraph Node: Spatial Planner Agent.
-    Decomposes natural language query into an actionable GIS pipeline.
+    Decomposes natural language query into an actionable GIS pipeline with dynamic global geocoding.
     """
     user_query = state.get("user_query", "").strip()
     logs = state.get("execution_logs", [])
@@ -45,12 +46,11 @@ def plan_spatial_workflow(state: AgentState) -> Dict[str, Any]:
             genai_mod = importlib.import_module("google.genai")
             client = genai_mod.Client(api_key=gemini_key)
 
-            
             prompt = f"""You are the Lead Geospatial AI Planner for GeoLab-Agent.
 
 Your job is to read the user's spatial planning query and determine:
-1. target_location (City or Region name, e.g., 'Khulna', 'Dhaka', 'Chittagong')
-2. identified_domain (e.g., 'Urban Heat & Microclimate', '15-Minute City & Mobility', 'Coastal Flood Resilience', 'Air Quality & Environmental Health', 'Comprehensive Urban Audit')
+1. target_location (City or Region name, e.g., 'Sylhet', 'Khulna', 'Cox's Bazar', 'London', 'Tokyo')
+2. identified_domain (e.g., 'Urban Heat & Microclimate', '15-Minute City & Mobility', 'Coastal Flood Resilience', 'Air Quality & Environmental Health', 'Sponge City Hydrology', 'Comprehensive Urban Audit')
 3. tool_sequence (Array of tool names chosen strictly from: {list(AVAILABLE_TOOLS.keys())})
 4. execution_plan_rationale (Brief justification in 1-2 sentences)
 
@@ -76,17 +76,13 @@ Respond ONLY with valid JSON in this format:
         except Exception as e:
             logs.append(f"⚠️ [Planner Agent] Gemini API call skipped/fallback triggered: {str(e)[:100]}")
 
-    # Robust Spatial Heuristic Fallback (Ensures zero-crash local execution)
+    # Robust Universal Spatial Heuristic Fallback
     if not plan_result:
         q_lower = user_query.lower()
         
-        # Extract location
-        loc = "Khulna"
-        for city in ["khulna", "dhaka", "chittagong", "rajshahi", "sylhet"]:
-            if city in q_lower:
-                loc = city.capitalize()
-                break
-                
+        # Universal Location Extraction
+        extracted_loc = extract_location_from_text(user_query)
+        
         # Determine tools and domain
         tools = []
         if any(w in q_lower for w in ["sponge", "runoff", "stormwater", "retention", "scs"]):
@@ -117,25 +113,32 @@ Respond ONLY with valid JSON in this format:
             domain = "Atmospheric Air Quality & Environmental Exposure"
             tools = ["compute_air_quality_index", "compute_ndvi_statistics"]
             rationale = "Retrieving Sentinel-5P tropospheric column densities and assessing vegetative buffer mitigation."
-
         else:
             domain = "Comprehensive Multi-Criteria Urban Audit"
             tools = ["compute_ndvi_statistics", "compute_lst_heat_island", "compute_walkability_isochrones", "compute_flood_hazard_overlay", "compute_lulc_change_detection"]
             rationale = "Comprehensive spatial synthesis covering vegetation canopy, thermal resilience, walkability, flood hazards, and urban sprawl."
 
-
         plan_result = {
-            "target_location": loc,
+            "target_location": extracted_loc,
             "identified_domain": domain,
             "tool_sequence": tools,
             "execution_plan_rationale": rationale
         }
-        logs.append(f"ℹ️ [Planner Agent] Spatial Domain Identified: {domain} for {loc}")
+        logs.append(f"ℹ️ [Planner Agent] Spatial Domain Identified: {domain} for {extracted_loc}")
+
+    # Dynamic Universal Geocoding
+    target_loc = plan_result.get("target_location", "Khulna")
+    geo_info = resolve_location_coordinates(target_loc)
+    center_coords = [geo_info["lat"], geo_info["lon"]]
+    
+    logs.append(f"📍 [Planner Agent] Geocoded Location: {geo_info['display_name']} ({geo_info['lat']}° N, {geo_info['lon']}° E) [{geo_info['source']}]")
 
     return {
-        "target_location": plan_result["target_location"],
+        "target_location": geo_info["location_name"],
         "identified_domain": plan_result["identified_domain"],
         "tool_sequence": plan_result["tool_sequence"],
         "execution_plan_rationale": plan_result["execution_plan_rationale"],
+        "center_coordinates": center_coords,
         "execution_logs": logs
     }
+

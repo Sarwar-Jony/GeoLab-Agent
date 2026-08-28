@@ -9,6 +9,7 @@ from .network_analytics import compute_walkability_isochrones, compute_transit_a
 from .vector_analytics import compute_zoning_vulnerability, compute_flood_hazard_overlay, compute_sponge_city_runoff, compute_spatial_equity_deficit
 from .map_renderer import build_interactive_folium_map
 from .raster_exporter import generate_geotiff_raster
+from .geocoder import extract_location_from_text, resolve_location_coordinates
 
 __all__ = [
     "compute_ndvi_statistics",
@@ -23,6 +24,9 @@ __all__ = [
     "compute_spatial_equity_deficit",
     "build_interactive_folium_map",
     "generate_geotiff_raster",
+    "extract_location_from_text",
+    "resolve_location_coordinates",
 ]
+
 
 
