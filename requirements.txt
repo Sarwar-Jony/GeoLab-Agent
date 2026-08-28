@@ -23,3 +23,6 @@ pandas>=2.0.0
 streamlit>=1.35.0
 streamlit-folium>=0.20.0
 requests>=2.31.0
+fiona>=1.9.0
+pyproj>=3.6.0
+

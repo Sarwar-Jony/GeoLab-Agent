@@ -527,6 +527,9 @@ with main_tab_studio:
             with col_map:
                 components.html(map_html, height=650, scrolling=False)
                 st.caption(f"💡 *Displaying **{active_raster_name}** colormapped surface for **{loc_display}**.*")
+    else:
+        st.info("👈 Please enter a location name above or upload a shapefile boundary to launch the autonomous GeoAI studio.")
+
 
 
 # ==============================================================================
@@ -587,7 +590,7 @@ with main_tab_whatif:
             )
 
         st.markdown("---")
-        st.markdown(r"""
+        st.markdown("""
         <div class="feature-card">
             <h5 style="color: #38bdf8; margin-top: 0;">🔬 Scientific Model Reference:</h5>
             <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 6px;">
@@ -601,6 +604,9 @@ with main_tab_whatif:
             </p>
         </div>
         """, unsafe_allow_html=True)
+    else:
+        st.info("👈 Please define a study area on the main studio tab to activate the digital twin simulation.")
+
 
 
 # ==============================================================================
@@ -691,6 +697,8 @@ with main_tab_eo:
             use_container_width=True,
             key=f"btn_download_eo_tab_{selected_key}"
         )
+    else:
+        st.info("👈 Please define a study area on the main studio tab to compute and export Earth Observation rasters.")
 
 
 # ==============================================================================
@@ -839,6 +847,9 @@ with main_tab_export:
                 use_container_width=True,
                 key="btn_download_md"
             )
+    else:
+        st.info("👈 Please define a study area on the main studio tab to generate and export GIS packages.")
+
 
 
 # ==============================================================================
