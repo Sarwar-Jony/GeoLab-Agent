@@ -10,6 +10,7 @@ from .vector_analytics import compute_zoning_vulnerability, compute_flood_hazard
 from .map_renderer import build_interactive_folium_map
 from .raster_exporter import generate_geotiff_raster
 from .geocoder import extract_location_from_text, resolve_location_coordinates
+from .exporter_hub import convert_geojson_to_kml, generate_printable_html, generate_master_zip_package
 
 __all__ = [
     "compute_ndvi_statistics",
@@ -26,7 +27,11 @@ __all__ = [
     "generate_geotiff_raster",
     "extract_location_from_text",
     "resolve_location_coordinates",
+    "convert_geojson_to_kml",
+    "generate_printable_html",
+    "generate_master_zip_package",
 ]
+
 
 
 

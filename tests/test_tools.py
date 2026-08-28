@@ -99,8 +99,43 @@ class TestGeospatialTools(unittest.TestCase):
         self.assertIn("SpongeCity_Runoff", sponge_fn)
         self.assertGreater(len(sponge_bytes), 1000)
 
+    def test_exporter_hub_kml_and_zip(self):
+        from src.tools.exporter_hub import convert_geojson_to_kml, generate_master_zip_package, generate_printable_html
+
+        sample_res = {
+            "target_location": "Sylhet",
+            "identified_domain": "Urban Heat & Canopy",
+            "policy_report_markdown": "# Sylhet Brief",
+            "collected_metrics": {"compute_ndvi_statistics__mean_ndvi": 0.35},
+            "geojson_layers": [{
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "properties": {"name": "Sylhet Core", "layer_type": "ndvi"},
+                    "geometry": {"type": "Polygon", "coordinates": [[[91.8, 24.8], [91.9, 24.8], [91.9, 24.9], [91.8, 24.9], [91.8, 24.8]]]}
+                }]
+            }]
+        }
+
+        # KML Test
+        kml_out = convert_geojson_to_kml(sample_res["geojson_layers"][0], "Sylhet Test")
+        self.assertIn("<kml", kml_out)
+        self.assertIn("<Placemark>", kml_out)
+        self.assertIn("<Polygon>", kml_out)
+
+        # HTML Test
+        html_out = generate_printable_html(sample_res)
+        self.assertIn("<!DOCTYPE html>", html_out)
+        self.assertIn("Sylhet", html_out)
+
+        # Master ZIP Package Test
+        zip_bytes, zip_fn = generate_master_zip_package(sample_res)
+        self.assertTrue(zip_fn.endswith(".zip"))
+        self.assertGreater(len(zip_bytes), 5000)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
