@@ -1,1 +1,16 @@
-{" venvPath\: \.\, \venv\: \venv\, \extraPaths\: [\.\, \./venv/Lib/site-packages\]}
+{
+    "venvPath": ".",
+    "venv": "venv",
+    "extraPaths": [
+        ".",
+        "venv/Lib/site-packages"
+    ],
+    "include": [
+        "app",
+        "src",
+        "tests"
+    ],
+    "reportMissingImports": false,
+    "pythonVersion": "3.10",
+    "pythonPlatform": "Windows"
+}
