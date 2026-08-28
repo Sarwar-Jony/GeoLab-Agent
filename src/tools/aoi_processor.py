@@ -9,8 +9,8 @@ import io
 import json
 import zipfile
 from typing import Dict, Any, Tuple
-import geopandas as gpd
-from shapely.geometry import shape, mapping
+import geopandas as gpd  # type: ignore
+from shapely.geometry import shape, mapping  # type: ignore
 
 
 def process_uploaded_aoi(file_bytes: bytes, filename: str) -> Dict[str, Any]:
@@ -55,12 +55,13 @@ def process_uploaded_aoi(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         elif file_lower.endswith(".kml"):
             # Handle Google Earth KML (requires fiona driver or standard parser)
             try:
-                import fiona
+                import fiona  # type: ignore
                 fiona.drvsupport.supported_drivers["KML"] = "rw"
                 with io.BytesIO(file_bytes) as kml_buffer:
                     gdf = gpd.read_file(kml_buffer, driver="KML")
                     fmt_detected = "Google Earth KML Vector (.kml)"
             except Exception:
+
                 # Fallback simple geojson parse if KML driver is absent
                 with io.BytesIO(file_bytes) as kml_buffer:
                     gdf = gpd.read_file(kml_buffer)

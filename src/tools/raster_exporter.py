@@ -7,11 +7,12 @@ Compatible with QGIS, ArcGIS Pro, Google Earth Engine, and GDAL/Rasterio pipelin
 """
 
 import io
-import numpy as np
-import rasterio
-from rasterio.io import MemoryFile
-from rasterio.transform import from_bounds
+import numpy as np  # type: ignore
+import rasterio  # type: ignore
+from rasterio.io import MemoryFile  # type: ignore
+from rasterio.transform import from_bounds  # type: ignore
 from src.tools.geocoder import resolve_location_coordinates
+
 
 
 AVAILABLE_RASTER_TYPES = {

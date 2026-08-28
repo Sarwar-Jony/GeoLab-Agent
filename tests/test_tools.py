@@ -75,8 +75,9 @@ class TestGeospatialTools(unittest.TestCase):
         self.assertEqual(res["geojson_layer"]["layer_type"], "spatial_equity_deficit")
 
     def test_geotiff_raster_export(self):
-        import rasterio
-        from rasterio.io import MemoryFile
+        import rasterio  # type: ignore
+        from rasterio.io import MemoryFile  # type: ignore
+
 
         # Test NDVI raster export
         data_bytes, filename, meta = generate_geotiff_raster("Khulna", "ndvi")
