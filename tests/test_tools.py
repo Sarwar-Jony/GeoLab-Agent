@@ -143,9 +143,52 @@ class TestGeospatialTools(unittest.TestCase):
         self.assertTrue(zip_fn.endswith(".zip"))
         self.assertGreater(len(zip_bytes), 5000)
 
+    def test_process_uploaded_aoi(self):
+        from src.tools.aoi_processor import process_uploaded_aoi
+        import json
+
+        # 1. Test GeoJSON upload processing
+        sample_geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": {"name": "Sundarbans Sector 1", "zone": "Protected Mangrove"},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[89.4, 21.8], [89.7, 21.8], [89.7, 22.1], [89.4, 22.1], [89.4, 21.8]]]
+                }
+            }]
+        }
+        geojson_bytes = json.dumps(sample_geojson).encode("utf-8")
+        parsed = process_uploaded_aoi(geojson_bytes, "sundarbans_aoi.geojson")
+
+        self.assertTrue(parsed["success"])
+        self.assertEqual(parsed["aoi_name"], "Sundarbans Aoi")
+        self.assertGreater(parsed["area_km2"], 0)
+        self.assertEqual(parsed["feature_count"], 1)
+        self.assertEqual(len(parsed["bbox"]), 4)
+        self.assertEqual(len(parsed["center"]), 2)
+
+    def test_flow_accumulation_and_custom_bbox(self):
+        # Test Flow Accumulation with custom uploaded bounding box
+        custom_bbox = [89.4, 21.8, 89.7, 22.1]
+        tif_bytes, tif_fn, tif_meta = generate_geotiff_raster(
+            target_location="Sundarbans",
+            raster_type="flow_accumulation",
+            custom_bbox=custom_bbox
+        )
+        self.assertTrue(tif_fn.endswith(".tif"))
+        self.assertIn("Flow_Accumulation", tif_fn)
+        self.assertGreater(len(tif_bytes), 1000)
+        self.assertEqual(tif_meta["bounds"]["west"], 89.4)
+        self.assertEqual(tif_meta["bounds"]["north"], 22.1)
+        self.assertIn("stats", tif_meta)
+        self.assertGreater(tif_meta["stats"]["max"], tif_meta["stats"]["min"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
 

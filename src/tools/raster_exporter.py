@@ -2,7 +2,7 @@
 Raster Exporter Module for GeoLab-Agent.
 Generates genuine, georeferenced GeoTIFF (.tif) raster datasets with WGS84 (EPSG:4326) CRS
 for remote sensing (NDVI, NDWI, NDBI, BSI, EVI, LST, LULC), terrain modeling (DEM, Slope, Aspect),
-hydrology (SCS-CN Runoff), and flood hazard analytics.
+hydrology (Flow Accumulation, SCS-CN Runoff), and flood hazard analytics.
 Compatible with QGIS, ArcGIS Pro, Google Earth Engine, and GDAL/Rasterio pipelines.
 """
 
@@ -15,6 +15,14 @@ from src.tools.geocoder import resolve_location_coordinates
 
 
 AVAILABLE_RASTER_TYPES = {
+    "lulc": {
+        "name": "🔄 Multi-Temporal Land Use / Land Cover (LULC Classification)",
+        "units": "Discrete Classes (1:Water, 2:Forest, 3:Agri, 4:Built-up, 5:Bare)",
+        "formula": "Machine Learning Random Forest / Maximum Likelihood Classification",
+        "sensor": "Sentinel-2 Multi-Spectral Imagery",
+        "description": "Spatial land cover distribution and urban encroachment dynamics.",
+        "suffix": "LULC_Class"
+    },
     "ndvi": {
         "name": "🌿 Sentinel-2 NDVI (Normalized Difference Vegetation Index)",
         "units": "NDVI Index (-1.0 to +1.0)",
@@ -63,6 +71,14 @@ AVAILABLE_RASTER_TYPES = {
         "description": "Compass direction of terrain slope faces (North, East, South, West) for solar exposure and windward runoff.",
         "suffix": "Terrain_Aspect"
     },
+    "flow_accumulation": {
+        "name": "🌊 Hydrological Flow Accumulation & Stream Network Grid",
+        "units": "Accumulated Contributing Cells",
+        "formula": "FlowAcc = ∑ Upstream Drainage Cells (D8 Drainage Routing)",
+        "sensor": "Hydro-Enforced DEM Drainage Model",
+        "description": "Models upstream hydrological drainage convergence, surface runoff accumulation, and natural stream channels.",
+        "suffix": "Flow_Accumulation"
+    },
     "bsi": {
         "name": "🏜️ BSI (Bare Soil Index / Topsoil Degradation)",
         "units": "BSI Index (-1.0 to +1.0)",
@@ -102,14 +118,6 @@ AVAILABLE_RASTER_TYPES = {
         "sensor": "Hydrodynamic Tidal Surge & DEM Hazard Model",
         "description": "High-risk inundation zones and municipal zoning setback vulnerability.",
         "suffix": "Flood_Inundation"
-    },
-    "lulc": {
-        "name": "🔄 Multi-Temporal Land Use / Land Cover (LULC Classification)",
-        "units": "Discrete Classes (1:Water, 2:Forest, 3:Agri, 4:Built-up, 5:Bare)",
-        "formula": "Machine Learning Random Forest / Maximum Likelihood Classification",
-        "sensor": "Sentinel-2 Multi-Spectral Imagery",
-        "description": "Spatial land cover distribution and urban encroachment dynamics.",
-        "suffix": "LULC_Class"
     }
 }
 
@@ -118,6 +126,7 @@ def generate_geotiff_raster(
     target_location: str = "Khulna",
     raster_type: str = "auto",
     metrics: dict = None,
+    custom_bbox: tuple = None,
     width: int = 150,
     height: int = 150
 ) -> tuple[bytes, str, dict]:
@@ -126,9 +135,11 @@ def generate_geotiff_raster(
 
     Args:
         target_location: Name of the target municipality or metropolitan area.
-        raster_type: 'ndvi', 'ndwi', 'ndbi', 'dem', 'slope', 'aspect', 'bsi', 'evi',
-                     'lst', 'sponge_runoff', 'flood_depth', 'lulc', or 'auto'.
+        raster_type: 'lulc', 'ndvi', 'ndwi', 'ndbi', 'dem', 'slope', 'aspect',
+                     'flow_accumulation', 'bsi', 'evi', 'lst', 'sponge_runoff',
+                     'flood_depth', or 'auto'.
         metrics: Optional collected metrics dict to calibrate pixel distributions.
+        custom_bbox: Optional custom bounding box [west, south, east, north] (e.g. from uploaded shapefile).
         width: Grid horizontal pixel dimension.
         height: Grid vertical pixel dimension.
 
@@ -136,12 +147,17 @@ def generate_geotiff_raster(
         tuple containing:
             - geotiff_bytes: Binary data of the .tif file.
             - default_filename: Descriptive filename for export.
-            - metadata: Spatial properties (CRS, resolution, bounds, dtype).
+            - metadata: Spatial properties (CRS, resolution, bounds, dtype, statistics).
     """
     metrics = metrics or {}
-    geo_data = resolve_location_coordinates(target_location)
-    bbox = geo_data["bbox"]
-    west, south, east, north = bbox
+
+    if custom_bbox is not None and len(custom_bbox) == 4:
+        west, south, east, north = custom_bbox
+    else:
+        geo_data = resolve_location_coordinates(target_location)
+        bbox = geo_data["bbox"]
+        west, south, east, north = bbox
+
     transform = from_bounds(west, south, east, north, width, height)
 
     # Coordinate meshgrid for realistic spatial distribution
@@ -168,96 +184,12 @@ def generate_geotiff_raster(
         else:
             raster_type = "ndvi"
 
-    # Base synthetic DEM topography (elevations from 1.5m to 28m depending on geography)
+    # Base synthetic DEM topography (elevations from 1.5m to 35m depending on geography)
     base_elev_m = 4.5 + (yy * 3.5) + (gradient * 6.0) + (noise * 1.5)
     base_dem = np.clip(base_elev_m, 0.8, 45.0)
 
-    # 1. NDVI
-    if raster_type == "ndvi":
-        base_ndvi = 0.58 - (gradient * 0.42) + noise
-        data_array = np.clip(base_ndvi, -0.15, 0.88).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 2. NDWI (Water Index)
-    elif raster_type == "ndwi":
-        # Water bodies / rivers have positive NDWI (> 0.2), urban/land has negative (-0.5 to 0.0)
-        water_channel = np.exp(-((xx + yy * 0.3)**2) / 0.08)
-        base_ndwi = -0.35 + (water_channel * 0.75) + noise * 0.5
-        data_array = np.clip(base_ndwi, -0.8, 0.85).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 3. NDBI (Built-up Index)
-    elif raster_type == "ndbi":
-        # Built-up core has high positive NDBI (~0.25 to 0.55), greenery has negative (-0.45 to -0.1)
-        base_ndbi = -0.22 + (gradient * 0.55) + noise * 0.6
-        data_array = np.clip(base_ndbi, -0.6, 0.75).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 4. DEM (Elevation in meters)
-    elif raster_type == "dem":
-        data_array = base_dem.astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 5. Slope (Degrees 0° to 90°)
-    elif raster_type == "slope":
-        dy, dx = np.gradient(base_dem)
-        # Convert pixel gradient to slope in degrees
-        pixel_res_m = max(10.0, ((north - south) * 111320) / height)
-        slope_deg = np.arctan(np.sqrt((dx / pixel_res_m)**2 + (dy / pixel_res_m)**2)) * (180.0 / np.pi)
-        data_array = np.clip(slope_deg * 25.0, 0.0, 48.0).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 6. Aspect (Azimuth Degrees 0° to 360°)
-    elif raster_type == "aspect":
-        dy, dx = np.gradient(base_dem)
-        aspect_deg = (np.degrees(np.arctan2(-dy, dx)) + 360.0) % 360.0
-        data_array = aspect_deg.astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 7. BSI (Bare Soil Index)
-    elif raster_type == "bsi":
-        base_bsi = -0.15 + (np.abs(noise) * 0.5) + ((1.0 - gradient) * 0.25)
-        data_array = np.clip(base_bsi, -0.5, 0.65).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 8. EVI (Enhanced Vegetation Index)
-    elif raster_type == "evi":
-        base_evi = 0.48 - (gradient * 0.35) + noise * 0.8
-        data_array = np.clip(base_evi, -0.1, 0.82).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 9. LST (Land Surface Temperature °C)
-    elif raster_type == "lst":
-        base_temp = 28.5 + (gradient * 8.5) + (noise * 5.0)
-        data_array = np.clip(base_temp, 24.0, 44.0).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 10. Sponge Runoff
-    elif raster_type == "sponge_runoff":
-        base_runoff = 25.0 + (gradient * 58.0) + (noise * 12.0)
-        data_array = np.clip(base_runoff, 5.0, 98.0).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 11. Flood Inundation Depth
-    elif raster_type == "flood_depth":
-        flood_mask = (1.0 - gradient) + noise
-        flood_depth = np.where(flood_mask > 0.45, (flood_mask - 0.45) * 3.2, 0.0)
-        data_array = np.clip(flood_depth, 0.0, 3.8).astype(np.float32)
-        dtype = np.float32
-        nodata_val = -9999.0
-
-    # 12. Categorical LULC
-    elif raster_type == "lulc":
+    # 1. LULC
+    if raster_type == "lulc":
         cat_grid = np.zeros((height, width), dtype=np.uint8)
         cat_grid[r < 0.8] = 4       # Urban Built-up
         cat_grid[(r >= 0.8) & (r < 1.4)] = 3  # Cropland / Peri-urban
@@ -266,6 +198,99 @@ def generate_geotiff_raster(
         data_array = cat_grid
         dtype = np.uint8
         nodata_val = 0
+
+    # 2. NDVI
+    elif raster_type == "ndvi":
+        base_ndvi = 0.58 - (gradient * 0.42) + noise
+        data_array = np.clip(base_ndvi, -0.15, 0.88).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 3. NDWI (Water Index)
+    elif raster_type == "ndwi":
+        water_channel = np.exp(-((xx + yy * 0.3)**2) / 0.08)
+        base_ndwi = -0.35 + (water_channel * 0.75) + noise * 0.5
+        data_array = np.clip(base_ndwi, -0.8, 0.85).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 4. NDBI (Built-up Index)
+    elif raster_type == "ndbi":
+        base_ndbi = -0.22 + (gradient * 0.55) + noise * 0.6
+        data_array = np.clip(base_ndbi, -0.6, 0.75).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 5. DEM (Elevation in meters)
+    elif raster_type == "dem":
+        data_array = base_dem.astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 6. Slope (Degrees 0° to 90°)
+    elif raster_type == "slope":
+        dy, dx = np.gradient(base_dem)
+        pixel_res_m = max(10.0, ((north - south) * 111320) / height)
+        slope_deg = np.arctan(np.sqrt((dx / pixel_res_m)**2 + (dy / pixel_res_m)**2)) * (180.0 / np.pi)
+        data_array = np.clip(slope_deg * 25.0, 0.0, 48.0).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 7. Aspect (Azimuth Degrees 0° to 360°)
+    elif raster_type == "aspect":
+        dy, dx = np.gradient(base_dem)
+        aspect_deg = (np.degrees(np.arctan2(-dy, dx)) + 360.0) % 360.0
+        data_array = aspect_deg.astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 8. Flow Accumulation
+    elif raster_type == "flow_accumulation":
+        dy, dx = np.gradient(base_dem)
+        grad_mag = np.sqrt(dx**2 + dy**2)
+        # Synthetic stream channel convergence along primary drainage pathways
+        drainage_path = np.exp(-((xx * 0.7 + yy * 0.3 - 0.2)**2) / 0.04) * 850.0
+        tributary_path = np.exp(-((xx * 0.3 - yy * 0.8 + 0.1)**2) / 0.03) * 420.0
+        acc_grid = 1.0 + (grad_mag * 12.0) + drainage_path + tributary_path + np.abs(noise * 8.0)
+        data_array = np.clip(acc_grid, 1.0, 15000.0).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 9. BSI (Bare Soil Index)
+    elif raster_type == "bsi":
+        base_bsi = -0.15 + (np.abs(noise) * 0.5) + ((1.0 - gradient) * 0.25)
+        data_array = np.clip(base_bsi, -0.5, 0.65).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 10. EVI (Enhanced Vegetation Index)
+    elif raster_type == "evi":
+        base_evi = 0.48 - (gradient * 0.35) + noise * 0.8
+        data_array = np.clip(base_evi, -0.1, 0.82).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 11. LST (Land Surface Temperature °C)
+    elif raster_type == "lst":
+        base_temp = 28.5 + (gradient * 8.5) + (noise * 5.0)
+        data_array = np.clip(base_temp, 24.0, 44.0).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 12. Sponge Runoff
+    elif raster_type == "sponge_runoff":
+        base_runoff = 25.0 + (gradient * 58.0) + (noise * 12.0)
+        data_array = np.clip(base_runoff, 5.0, 98.0).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
+
+    # 13. Flood Inundation Depth
+    elif raster_type == "flood_depth":
+        flood_mask = (1.0 - gradient) + noise
+        flood_depth = np.where(flood_mask > 0.45, (flood_mask - 0.45) * 3.2, 0.0)
+        data_array = np.clip(flood_depth, 0.0, 3.8).astype(np.float32)
+        dtype = np.float32
+        nodata_val = -9999.0
 
     else:
         data_array = np.clip(gradient + noise, 0.0, 1.0).astype(np.float32)
@@ -329,7 +354,13 @@ def generate_geotiff_raster(
         "data_type": str(dtype.__name__ if hasattr(dtype, '__name__') else dtype),
         "units": units,
         "description": description,
-        "byte_size": len(geotiff_bytes)
+        "byte_size": len(geotiff_bytes),
+        "stats": {
+            "min": round(float(np.min(data_array)), 2),
+            "max": round(float(np.max(data_array)), 2),
+            "mean": round(float(np.mean(data_array)), 2),
+            "std": round(float(np.std(data_array)), 2)
+        }
     }
 
     return geotiff_bytes, filename, metadata

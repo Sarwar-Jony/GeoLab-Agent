@@ -18,14 +18,13 @@ import streamlit as st  # type: ignore
 from streamlit_folium import st_folium  # type: ignore
 from dotenv import load_dotenv  # type: ignore
 
-
 load_dotenv()
 
 from src.agents.workflow import run_geolab_workflow
 from src.tools.map_renderer import build_interactive_folium_map
 from src.tools.raster_exporter import generate_geotiff_raster, AVAILABLE_RASTER_TYPES
 from src.tools.exporter_hub import convert_geojson_to_kml, generate_printable_html, generate_master_zip_package
-
+from src.tools.aoi_processor import process_uploaded_aoi
 
 
 # Page Configuration
@@ -162,6 +161,10 @@ if "agent_result" not in st.session_state:
     st.session_state.agent_result = None
 if "current_query" not in st.session_state:
     st.session_state.current_query = "Analyze urban heat island intensity and green space canopy deficit for Khulna city"
+if "custom_aoi_data" not in st.session_state:
+    st.session_state.custom_aoi_data = None
+if "input_mode_radio" not in st.session_state:
+    st.session_state.input_mode_radio = "🌐 Search Any Place Worldwide"
 
 # Sidebar Branding & Benchmark Control Panel
 with st.sidebar:
@@ -189,6 +192,7 @@ with st.sidebar:
     
     selected_scenario = st.selectbox("Select a benchmark scenario:", list(scenarios.keys()))
     if st.button("🚀 Load & Run Scenario", use_container_width=True):
+        st.session_state.custom_aoi_data = None
         st.session_state.current_query = scenarios[selected_scenario]
         st.session_state.agent_result = run_geolab_workflow(scenarios[selected_scenario])
         st.rerun()
@@ -198,9 +202,10 @@ with st.sidebar:
     api_status = "🟢 Active (Configured)" if os.environ.get("GEMINI_API_KEY") else "🟡 Synthetic / Sandbox Mode"
     st.caption(f"**LLM Engine:** Gemini 2.5 Flash ({api_status})")
     st.caption("**Geocoding:** Universal OSM Nominatim & Curated Registry")
-    st.caption("**Earth Observation:** Sentinel-2, Landsat-9, Sentinel-5P")
+    st.caption("**AOI Engine:** Shapefile (.shp/.zip), GeoJSON, KML Processor")
+    st.caption("**Earth Observation:** Sentinel-2, Landsat-9, Sentinel-5P, DEM")
     st.caption("**Network Engine:** OSMnx & Graph Theory")
-    st.caption("**Hydrology:** SCS-CN Sponge City Model")
+    st.caption("**Hydrology:** SCS-CN Sponge City & Flow Accumulation")
     st.caption("**Institution:** KUET Urban & Regional Planning (URP)")
     
     st.markdown("---")
@@ -218,7 +223,7 @@ st.markdown("""
     <div>
         <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #f8fafc;">Autonomous Spatial Planning & GeoAI Studio</h1>
         <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.95rem;">
-            Search any city or region worldwide to orchestrate Earth Observation, Urban Resilience, and Policy Analytics
+            Upload your own Study Area Shapefile or search any location worldwide to orchestrate Earth Observation and Policy Analytics
         </p>
     </div>
     <div>
@@ -227,47 +232,98 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Universal Spatial Search Bar
-with st.container():
-    col_input, col_btn = st.columns([5, 1])
-    with col_input:
-        user_query = st.text_input(
-            "Search any place or enter a Spatial Planning query:",
-            value=st.session_state.current_query,
-            placeholder="Search any place, e.g., 'Sylhet heat island', 'Cox\'s Bazar runoff', 'Rangpur 15-min walkability', 'Tokyo resilience'...",
-            label_visibility="collapsed"
-        )
-    with col_btn:
-        run_btn = st.button("🔍 Search & Run", use_container_width=True)
+# Study Area Input Mode Switcher
+mode_col1, mode_col2 = st.columns([1, 1])
+with mode_col1:
+    input_mode = st.radio(
+        "Select Study Area Input Mode:",
+        ["🌐 Search Any Place Worldwide", "📁 Upload Custom Study Area (Shapefile / GeoJSON / KML)"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
-# Execute Workflow on Button Click or Initial Default Load
-if run_btn:
-    with st.spinner("🤖 Multi-Agent Engine geocoding location and orchestrating GEE, OSMnx, Hydrology..."):
-        st.session_state.agent_result = run_geolab_workflow(user_query)
-elif st.session_state.agent_result is None:
-    with st.spinner("🤖 Initializing GeoAI Spatial Engine..."):
-        st.session_state.agent_result = run_geolab_workflow(st.session_state.current_query)
+custom_aoi = st.session_state.custom_aoi_data
+
+if input_mode == "🌐 Search Any Place Worldwide":
+    # Universal Spatial Search Bar
+    with st.container():
+        col_input, col_btn = st.columns([5, 1])
+        with col_input:
+            user_query = st.text_input(
+                "Search any place or enter a Spatial Planning query:",
+                value=st.session_state.current_query,
+                placeholder="Search any place, e.g., 'Sylhet heat island', 'Sundarbans mangrove', 'Cox\'s Bazar runoff', 'Tokyo resilience'...",
+                label_visibility="collapsed"
+            )
+        with col_btn:
+            run_btn = st.button("🔍 Search & Run", use_container_width=True)
+
+    if run_btn:
+        st.session_state.custom_aoi_data = None
+        with st.spinner("🤖 Multi-Agent Engine geocoding location and orchestrating GEE, OSMnx, Hydrology..."):
+            st.session_state.agent_result = run_geolab_workflow(user_query)
+    elif st.session_state.agent_result is None and custom_aoi is None:
+        with st.spinner("🤖 Initializing GeoAI Spatial Engine..."):
+            st.session_state.agent_result = run_geolab_workflow(st.session_state.current_query)
+
+else:
+    # Custom Study Area Shapefile / GeoJSON Uploader
+    with st.container():
+        upload_col, action_col = st.columns([4, 1])
+        with upload_col:
+            uploaded_aoi_file = st.file_uploader(
+                "Upload Custom Study Area Boundary (ESRI Shapefile .zip with .shp/.shx/.dbf/.prj, GeoJSON .geojson, or KML .kml):",
+                type=["zip", "geojson", "json", "kml"],
+                help="Upload a zipped shapefile archive or a standard GeoJSON boundary file."
+            )
+        with action_col:
+            st.write("")
+            st.write("")
+            run_aoi_btn = st.button("🚀 Analyze AOI", use_container_width=True)
+
+        if uploaded_aoi_file is not None:
+            parsed_aoi = process_uploaded_aoi(uploaded_aoi_file.getvalue(), uploaded_aoi_file.name)
+            if parsed_aoi["success"]:
+                st.session_state.custom_aoi_data = parsed_aoi
+                st.success(f"✓ Successfully parsed **{parsed_aoi['aoi_name']}** ({parsed_aoi['format']}) | **Area:** {parsed_aoi['area_km2']:,} km² ({parsed_aoi['area_ha']:,} ha) | **Features:** {parsed_aoi['feature_count']}")
+                if run_aoi_btn:
+                    query_text = f"Analyze multi-criteria urban resilience, land cover, and vegetative canopy for {parsed_aoi['aoi_name']}"
+                    with st.spinner(f"🤖 Orchestrating Earth Observation and GeoAI for custom study area '{parsed_aoi['aoi_name']}'..."):
+                        res = run_geolab_workflow(query_text)
+                        # Override target location and coordinates with uploaded AOI
+                        res["target_location"] = parsed_aoi["aoi_name"]
+                        res["center_coordinates"] = parsed_aoi["center"]
+                        # Inject custom boundary layer
+                        res["geojson_layers"].insert(0, parsed_aoi["geojson_layer"])
+                        st.session_state.agent_result = res
+                        st.rerun()
+            else:
+                st.error(f"❌ Error processing vector boundary: {parsed_aoi['error']}")
 
 result = st.session_state.agent_result
+custom_aoi = st.session_state.custom_aoi_data
 
 # Location & Spatial Intelligence Badge
 if result:
-    loc_display = result.get("target_location", "City")
+    loc_display = result.get("target_location", "Study Area")
     dom_display = result.get("identified_domain", "Urban Planning")
     coords_display = result.get("center_coordinates", [22.8456, 89.5403])
     lat_str = f"{coords_display[0]:.4f}° N" if coords_display[0] >= 0 else f"{abs(coords_display[0]):.4f}° S"
     lon_str = f"{coords_display[1]:.4f}° E" if coords_display[1] >= 0 else f"{abs(coords_display[1]):.4f}° W"
+    
+    aoi_tag = "📁 Custom Uploaded Study Area" if custom_aoi else "🌐 Global Geocoded Extent"
+    extra_meta = f" | 📐 {custom_aoi['area_km2']:,} km² ({custom_aoi['area_ha']:,} ha)" if custom_aoi else ""
     
     st.markdown(f"""
     <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div>
             <span style="color: #38bdf8; font-weight: 700; font-size: 0.95rem;">📍 Target Study Area:</span>
             <strong style="color: #f8fafc; font-size: 1.05rem; margin-left: 6px;">{loc_display}</strong>
-            <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">({lat_str}, {lon_str})</span>
+            <span style="color: #94a3b8; font-size: 0.85rem; margin-left: 8px;">({lat_str}, {lon_str}{extra_meta})</span>
         </div>
         <div>
-            <span style="color: #38bdf8; font-weight: 700; font-size: 0.95rem;">🔬 Domain:</span>
-            <span style="color: #e2e8f0; font-size: 0.9rem; margin-left: 6px; background: rgba(56, 189, 248, 0.15); padding: 3px 8px; border-radius: 4px;">{dom_display}</span>
+            <span style="color: #34d399; font-size: 0.82rem; font-weight: 600; margin-right: 8px;">{aoi_tag}</span>
+            <span style="color: #e2e8f0; font-size: 0.9rem; background: rgba(56, 189, 248, 0.15); padding: 3px 8px; border-radius: 4px;">🔬 {dom_display}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -391,7 +447,7 @@ with main_tab_studio:
                 st.info("🗺️ Multi-Layer Map Layer Metadata Available.")
                 st.json(map_obj)
             
-            st.caption("💡 *Tip: Use the top-right layer switch on the map to toggle between Dark Matter, Satellite Imagery, Thermal Hotspots, LULC Changes, Sponge Basins, and 15-Minute Isochrone Walksheds.*")
+            st.caption("💡 *Tip: Use the top-right layer switch on the map to toggle between Dark Matter, Satellite Imagery, Custom AOI Boundaries, Thermal Hotspots, LULC Changes, Sponge Basins, and 15-Minute Isochrone Walksheds.*")
 
 
 # ==============================================================================
@@ -402,7 +458,7 @@ with main_tab_whatif:
     st.caption("Interactively simulate urban greening, cool roof retrofits, transit expansions, and sponge detention interventions with real-time recalculations.")
     
     if result:
-        loc_name = result.get('target_location', 'City')
+        loc_name = result.get('target_location', 'Study Area')
         sim_col1, sim_col2 = st.columns(2)
         with sim_col1:
             tree_boost = st.slider("🌳 Urban Tree Canopy Target (+%):", min_value=0, max_value=50, value=20, step=5, key="slider_tree_canopy")
@@ -469,17 +525,17 @@ with main_tab_whatif:
         """, unsafe_allow_html=True)
 
 
-
 # ==============================================================================
 # TAB 3: EARTH OBSERVATION & REMOTE SENSING EXPLORER
 # ==============================================================================
 with main_tab_eo:
     st.markdown("### 🛰️ Earth Observation & Multi-Spectral Raster Analysis Lab")
-    st.caption("Explore, calculate, and download georeferenced GeoTIFF rasters for any remote sensing index or terrain parameter.")
+    st.caption("Explore, calculate, and download georeferenced GeoTIFF rasters for 13 satellite remote sensing, hydrological, and terrain indices.")
     
     if result:
-        loc_name = result.get('target_location', 'City')
+        loc_name = result.get('target_location', 'Study Area')
         metrics_dict = result.get('collected_metrics', {})
+        custom_bbox = custom_aoi["bbox"] if custom_aoi else None
         
         st.markdown(f"#### 🔬 Select & Compute Raster Index for **{loc_name}**:")
         
@@ -497,12 +553,15 @@ with main_tab_eo:
         selected_key = raster_keys[raster_labels.index(selected_eo_idx_label)]
         info_data = AVAILABLE_RASTER_TYPES[selected_key]
         
-        # Generate the GeoTIFF raster
+        # Generate the GeoTIFF raster tailored to custom_bbox if provided
         eo_tif_bytes, eo_tif_name, eo_tif_meta = generate_geotiff_raster(
             target_location=loc_name,
             raster_type=selected_key,
-            metrics=metrics_dict
+            metrics=metrics_dict,
+            custom_bbox=custom_bbox
         )
+        
+        stats = eo_tif_meta.get("stats", {})
         
         # Display comprehensive scientific card
         st.markdown(f"""
@@ -537,7 +596,15 @@ with main_tab_eo:
                 </div>
                 <div>
                     <strong style="color: #94a3b8;">Data Type:</strong><br>
-                    <span style="color: #f8fafc;">{eo_tif_meta['data_type']} (Float32 / Byte)</span>
+                    <span style="color: #f8fafc;">{eo_tif_meta['data_type']}</span>
+                </div>
+                <div>
+                    <strong style="color: #94a3b8;">Min / Max Value:</strong><br>
+                    <span style="color: #38bdf8;">{stats.get('min', 'N/A')} to {stats.get('max', 'N/A')}</span>
+                </div>
+                <div>
+                    <strong style="color: #94a3b8;">Mean ± Std Dev:</strong><br>
+                    <span style="color: #38bdf8;">{stats.get('mean', 'N/A')} ± {stats.get('std', 'N/A')}</span>
                 </div>
             </div>
         </div>
@@ -567,7 +634,7 @@ with main_tab_eo:
                 <strong>Bands Utilized:</strong> Band 2 (Blue), Band 3 (Green), Band 4 (Red), Band 8 (NIR), Band 11 (SWIR)
             </p>
             <p style="font-size: 0.82rem; color: #94a3b8;">
-                Powers high-resolution vegetative canopy (NDVI), surface water delineations (NDWI), and built-up urban morphology (NDBI).
+                Powers high-resolution vegetative canopy (NDVI), surface water delineations (NDWI), built-up morphology (NDBI), and bare soil (BSI).
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -604,10 +671,10 @@ with main_tab_eo:
             <h4 style="color: #60a5fa; margin-top: 0;">🏔️ NASADEM & Hydrodynamic Topography</h4>
             <p style="font-size: 0.88rem; color: #cbd5e1;">
                 <strong>Elevation Resolution:</strong> 30m Global Grid &nbsp;|&nbsp; <strong>Datum:</strong> EGM96 Geoid<br>
-                <strong>Hydrology Model:</strong> USDA NRCS Curve Number (SCS-CN)
+                <strong>Hydrology Model:</strong> Flow Accumulation & USDA NRCS Curve Number (SCS-CN)
             </p>
             <p style="font-size: 0.82rem; color: #94a3b8;">
-                Derives topographical slope gradients, aspect azimuths, stormwater runoff depths, and 25-year flood inundation zones.
+                Derives topographical slope gradients, aspect azimuths, hydrological flow paths, and 25-year flood inundation zones.
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -621,8 +688,9 @@ with main_tab_export:
     st.caption("Export your autonomous spatial analytics directly into desktop GIS (QGIS, ArcGIS Pro), Google Earth, and municipal formats.")
     
     if result:
-        loc_name = result.get('target_location', 'City')
+        loc_name = result.get('target_location', 'Study Area')
         metrics_dict = result.get('collected_metrics', {})
+        custom_bbox = custom_aoi["bbox"] if custom_aoi else None
         
         # 0. Featured Master Package (1-Click Download All)
         master_zip_bytes, master_zip_name = generate_master_zip_package(result)
@@ -692,7 +760,6 @@ with main_tab_export:
         st.markdown("##### 🛰️ 2. Georeferenced Satellite GeoTIFF Raster (.tif)")
         st.caption("Standard 32-bit float GeoTIFF with embedded WGS84 (EPSG:4326) CRS & Affine Transform for QGIS, ArcGIS Pro, and Google Earth Engine.")
         
-        # Default index selection based on active workflow
         raster_keys = list(AVAILABLE_RASTER_TYPES.keys())
         raster_labels = [f"{AVAILABLE_RASTER_TYPES[k]['name']}" for k in raster_keys]
         
@@ -717,7 +784,8 @@ with main_tab_export:
         geotiff_bytes, geotiff_filename, raster_meta = generate_geotiff_raster(
             target_location=loc_name,
             raster_type=selected_export_key,
-            metrics=metrics_dict
+            metrics=metrics_dict,
+            custom_bbox=custom_bbox
         )
         
         st.info(f"**Selected Raster:** `{geotiff_filename}` | **CRS:** {raster_meta['crs']} | **Grid:** {raster_meta['dimensions']} | **Size:** {round(raster_meta['byte_size'] / 1024, 1)} KB | **Band Unit:** {raster_meta['units']}")
@@ -730,7 +798,6 @@ with main_tab_export:
             use_container_width=True,
             key=f"btn_download_geotiff_hub_{selected_export_key}"
         )
-
 
         st.markdown("---")
         

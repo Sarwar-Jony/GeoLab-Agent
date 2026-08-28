@@ -82,28 +82,38 @@ Integrates OpenStreetMap road graphs to measure active mobility and spatial equi
 * **Transit Deficit Auditing:** Evaluates 400-meter public transit stop coverage ratios and highlights unserved residential clusters.
 * **2SFCA Healthcare Spatial Equity:** Employs Two-Step Floating Catchment Area modeling to identify communities underserved by emergency healthcare clinics and hospital beds.
 
-### 🧪 4. Interactive "What-If" Digital Twin Policy Sandbox
-Allows planners to simulate strategic interventions interactively with real-time recalculations:
-* Adjust tree canopy targets (+0% to +50%) and observe instant SUHI cooling deltas ($\Delta °C$).
-* Adjust cool-roof albedo retrofits (0% to 100%) and pedestrian transit hub density.
-* View instant before-vs-after delta metrics and comparative impact charts.
+### 📁 4. Custom Study Area (AOI) Upload & Global Search
+Enables planners to either upload custom study area vector boundaries or search any region worldwide:
+* **📁 Shapefile, GeoJSON & KML Vector Uploader:** Drag and drop zipped ESRI Shapefiles (`.zip` containing `.shp, .shx, .dbf, .prj`), `.geojson`, or `.kml`. Automatically computes planimetric area ($km^2$ and $ha$), perimeter ($km$), feature count, and WGS84 bounding box.
+* **🌐 Universal Global Search:** Natural language search bar for any city, upazila, district, river basin, or landmark worldwide with automatic geocoding fallback.
+* **🗺️ Automatic Bounding Box Calibration:** Satellite rasters, vector buffers, and network simulations dynamically crop and calibrate to the exact coordinates and spatial extent of the custom study area.
 
-### 💾 5. Multi-Format GIS & Municipal Report Exporter
+### 🛰️ 5. 13-in-1 Multi-Spectral & Terrain Raster GIS Engine
+Generates publication-quality 32-bit floating-point WGS84 (`EPSG:4326`) georeferenced GeoTIFF (`.tif`) rasters ready for direct map layout design in **QGIS**, **ArcGIS Pro**, **Google Earth Engine**, and **Python**:
+* 🔄 **LULC:** Multi-temporal land use / land cover classification (Water, Forest, Agri, Built-up, Bare).
+* 🌿 **NDVI:** Sentinel-2 vegetative canopy density and urban forestry deficit ($\frac{\text{NIR} - \text{Red}}{\text{NIR} + \text{Red}}$).
+* 💧 **NDWI:** Sentinel-2 surface water body delineation, wetlands, and flood ponding ($\frac{\text{Green} - \text{NIR}}{\text{Green} + \text{NIR}}$).
+* 🏢 **NDBI:** Sentinel-2 / Landsat built-up concrete density and urban sprawl ($\frac{\text{SWIR} - \text{NIR}}{\text{SWIR} + \text{NIR}}$).
+* 🏔️ **DEM:** High-precision NASADEM / SRTM 30m digital elevation model topography (meters above sea level).
+* 📐 **Slope:** Topographical slope gradient in degrees ($0^\circ - 90^\circ$) for surface runoff velocity and constructability.
+* 🧭 **Aspect:** Solar azimuth & terrain slope compass orientation ($0^\circ - 360^\circ$).
+* 🌊 **Flow Accumulation:** Hydrological stream network grid and upstream drainage convergence modeling.
+* 🏜️ **BSI:** Bare Soil Index for topsoil degradation and vacant earth-filling sites.
+* 🌾 **EVI:** Enhanced Vegetation Index for dense tropical canopy biomass without saturation.
+* 🔥 **LST:** Landsat-9 thermal infrared Land Surface Temperature ($^\circ\text{C}$) and SUHI hotspots.
+* 💧 **SCS-CN Runoff:** USDA NRCS Curve Number direct stormwater surface runoff depth ($mm$).
+* 🌊 **Flood Inundation:** 25-year return coastal tidal surge and deltaic flood depth ($m$).
+
+### 💾 6. Multi-Format GIS & Municipal Report Exporter
 Provides complete data interoperability for researchers and municipal authorities:
 * **📦 1-Click Master GIS Research Package (`.zip`):** Bundles all GeoJSON layers, Google Earth KML, GeoTIFF raster, CSV metrics, HTML brief, policy markdown, and a complete data dictionary.
 * **🌐 Google Earth 3D Overlays (`.kml`):** OGC KML format with pre-styled polygons and popups for Google Earth Pro and Google Earth Web.
-* **🛰️ Georeferenced GeoTIFF Rasters (`.tif`):** WGS84 (EPSG:4326) 32-bit floating-point satellite rasters for **Sentinel-2 NDVI**, **Landsat-9 LST Thermal**, **SCS-CN Runoff Depth**, **Flood Inundation**, and **Categorical LULC** with embedded Affine Transforms for direct QGIS and ArcGIS Pro analysis.
+* **🛰️ Georeferenced GeoTIFF Rasters (`.tif`):** WGS84 (EPSG:4326) 32-bit floating-point rasters for all 13 indices with embedded Affine Transforms.
 * **🗺️ GeoJSON Layer Package (`.geojson`):** Direct drag-and-drop vector features into QGIS, ArcGIS Pro, and Mapbox.
 * **📊 Geospatial Metrics Table (`.csv`):** Tabular statistical format for analysis in Python, R, or SPSS.
-* **📄 Printable Municipal Brief (`.html` / PDF):** Formatted executive report with institutional KUET URP branding and compliance tables.
+* **📄 Printable Municipal Brief (`.html` / PDF):** Formatted executive report with institutional KUET URP branding.
 * **📑 Markdown Policy Brief (`.md`):** Complete structured text for academic documentation.
 
-
-### 🌐 6. Universal Geocoding & Global Spatial Search
-Enables effortless natural language querying for arbitrary locations worldwide:
-* **All 64 Bangladesh Districts & Upazilas:** Instant high-speed spatial resolution for Khulna, Dhaka, Chittagong, Sylhet, Rangpur, Cox's Bazar, Mymensingh, Rajshahi, Barisal, Bogura, and more.
-* **Global Metropolitan Resolution:** Live dynamic fallback querying OpenStreetMap (OSM) Nominatim to automatically extract bounding boxes and center coordinates for international cities (e.g., Tokyo, London, Paris, Singapore, New York).
-* **Automatic Bounding Box Calibration:** Remote sensing rasters and vector network simulations dynamically align with the exact geographic bounds of the searched locality.
 
 
 

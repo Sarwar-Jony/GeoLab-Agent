@@ -11,6 +11,7 @@ from .map_renderer import build_interactive_folium_map
 from .raster_exporter import generate_geotiff_raster, AVAILABLE_RASTER_TYPES
 from .geocoder import extract_location_from_text, resolve_location_coordinates
 from .exporter_hub import convert_geojson_to_kml, generate_printable_html, generate_master_zip_package
+from .aoi_processor import process_uploaded_aoi
 
 __all__ = [
     "compute_ndvi_statistics",
@@ -31,7 +32,9 @@ __all__ = [
     "convert_geojson_to_kml",
     "generate_printable_html",
     "generate_master_zip_package",
+    "process_uploaded_aoi",
 ]
+
 
 
 
