@@ -22,6 +22,8 @@ load_dotenv()
 
 from src.agents.workflow import run_geolab_workflow
 from src.tools.map_renderer import build_interactive_folium_map
+from src.tools.raster_exporter import generate_geotiff_raster
+
 
 # Page Configuration
 st.set_page_config(
@@ -398,59 +400,122 @@ with col_left:
         st.caption("Export your autonomous spatial analytics directly into desktop GIS (QGIS, ArcGIS Pro) and municipal formats.")
         
         loc_name = result.get('target_location', 'City')
+        metrics_dict = result.get('collected_metrics', {})
         
-        # 1. GeoJSON Bundle
-        combined_geojson = {
-            "type": "FeatureCollection",
-            "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
-            "features": []
-        }
-        for layer in result.get("geojson_layers", []):
-            if "features" in layer:
-                combined_geojson["features"].extend(layer["features"])
-                
-        st.download_button(
-            label="📥 Download GeoJSON Layer Package (.geojson)",
-            data=json.dumps(combined_geojson, indent=2),
-            file_name=f"GeoLab_{loc_name}_Layers.geojson",
-            mime="application/geo+json",
-            use_container_width=True
-        )
-        
-        # 2. CSV Metrics Table
-        import io, csv
-        csv_buffer = io.StringIO()
-        writer = csv.writer(csv_buffer)
-        writer.writerow(["Tool_and_Metric", "Observed_Value"])
-        for k, v in result.get("collected_metrics", {}).items():
-            writer.writerow([k, str(v)])
+        # Section A: Vector Layers & Metrics
+        st.markdown("##### 🗺️ 1. Vector Layers & Geospatial Metrics")
+        exp_col1, exp_col2 = st.columns(2)
+        with exp_col1:
+            combined_geojson = {
+                "type": "FeatureCollection",
+                "crs": {"type": "name", "properties": {"name": "urn:ogc:def:crs:OGC:1.3:CRS84"}},
+                "features": []
+            }
+            for layer in result.get("geojson_layers", []):
+                if "features" in layer:
+                    combined_geojson["features"].extend(layer["features"])
+                    
+            st.download_button(
+                label="📥 Download GeoJSON Layers (.geojson)",
+                data=json.dumps(combined_geojson, indent=2),
+                file_name=f"GeoLab_{loc_name}_Layers.geojson",
+                mime="application/geo+json",
+                use_container_width=True
+            )
             
-        st.download_button(
-            label="📊 Download Geospatial Metrics Table (.csv)",
-            data=csv_buffer.getvalue(),
-            file_name=f"GeoLab_{loc_name}_Metrics.csv",
-            mime="text/csv",
-            use_container_width=True
+        with exp_col2:
+            import io, csv
+            csv_buffer = io.StringIO()
+            writer = csv.writer(csv_buffer)
+            writer.writerow(["Tool_and_Metric", "Observed_Value"])
+            for k, v in metrics_dict.items():
+                writer.writerow([k, str(v)])
+                
+            st.download_button(
+                label="📊 Download Metrics Table (.csv)",
+                data=csv_buffer.getvalue(),
+                file_name=f"GeoLab_{loc_name}_Metrics.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+
+        st.markdown("---")
+        # Section B: Georeferenced GeoTIFF Raster Export
+        st.markdown("##### 🛰️ 2. Georeferenced Satellite GeoTIFF Raster (.tif)")
+        st.caption("Standard 32-bit float GeoTIFF with embedded WGS84 (EPSG:4326) CRS & Affine Transform for QGIS, ArcGIS Pro, and Google Earth Engine.")
+        
+        # Determine initial selection based on active workflow
+        default_idx = 0
+        if any("lst_heat_island" in k for k in metrics_dict.keys()):
+            default_idx = 1
+        elif any("sponge_city" in k for k in metrics_dict.keys()):
+            default_idx = 2
+        elif any("flood_hazard" in k for k in metrics_dict.keys()):
+            default_idx = 3
+        elif any("lulc_change" in k for k in metrics_dict.keys()):
+            default_idx = 4
+
+        raster_options = [
+            "🌿 Sentinel-2 NDVI Canopy Index (Float32, -1 to +1)",
+            "🔥 Landsat-9 Land Surface Temperature (LST °C)",
+            "💧 SCS-CN Sponge City Direct Surface Runoff (mm)",
+            "🌊 DEM 25-Year Coastal / Deltaic Flood Inundation (m)",
+            "🔄 Multi-Temporal LULC Classification (Categorical Classes)"
+        ]
+
+        raster_opt = st.selectbox(
+            "Select Raster Band to Export:",
+            raster_options,
+            index=default_idx
         )
         
-        # 3. HTML Municipal Brief
-        html_report_data = generate_html_report(result)
-        st.download_button(
-            label="📄 Download Printable Municipal Report (.html)",
-            data=html_report_data,
-            file_name=f"GeoLab_Brief_{loc_name}.html",
-            mime="text/html",
-            use_container_width=True
+        raster_type_map = {
+            "🌿 Sentinel-2 NDVI Canopy Index (Float32, -1 to +1)": "ndvi",
+            "🔥 Landsat-9 Land Surface Temperature (LST °C)": "lst",
+            "💧 SCS-CN Sponge City Direct Surface Runoff (mm)": "sponge_runoff",
+            "🌊 DEM 25-Year Coastal / Deltaic Flood Inundation (m)": "flood_depth",
+            "🔄 Multi-Temporal LULC Classification (Categorical Classes)": "lulc"
+        }
+        
+        selected_raster_type = raster_type_map[raster_opt]
+        geotiff_bytes, geotiff_filename, raster_meta = generate_geotiff_raster(
+            target_location=loc_name,
+            raster_type=selected_raster_type,
+            metrics=metrics_dict
         )
         
-        # 4. Markdown Report
+        st.info(f"**Active Raster:** `{geotiff_filename}` | **CRS:** {raster_meta['crs']} | **Grid:** {raster_meta['dimensions']} | **Size:** {round(raster_meta['byte_size'] / 1024, 1)} KB | **Band Unit:** {raster_meta['units']}")
+        
         st.download_button(
-            label="📑 Download Policy Brief (.md)",
-            data=result.get("policy_report_markdown", ""),
-            file_name=f"GeoLab_Report_{loc_name}.md",
-            mime="text/markdown",
+            label=f"📥 Download {geotiff_filename} (.tif)",
+            data=geotiff_bytes,
+            file_name=geotiff_filename,
+            mime="image/tiff",
             use_container_width=True
         )
+
+        st.markdown("---")
+        # Section C: Municipal Briefs
+        st.markdown("##### 📑 3. Municipal & Academic Policy Briefs")
+        rep_col1, rep_col2 = st.columns(2)
+        with rep_col1:
+            html_report_data = generate_html_report(result)
+            st.download_button(
+                label="📄 Printable Municipal Report (.html)",
+                data=html_report_data,
+                file_name=f"GeoLab_Brief_{loc_name}.html",
+                mime="text/html",
+                use_container_width=True
+            )
+        with rep_col2:
+            st.download_button(
+                label="📑 Policy Brief (.md)",
+                data=result.get("policy_report_markdown", ""),
+                file_name=f"GeoLab_Report_{loc_name}.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
+
 
 
     with tab_logs:

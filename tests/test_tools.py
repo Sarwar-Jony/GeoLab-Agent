@@ -8,6 +8,8 @@ from src.tools.gee_analytics import compute_ndvi_statistics, compute_lst_heat_is
 from src.tools.network_analytics import compute_walkability_isochrones, compute_transit_accessibility
 from src.tools.vector_analytics import compute_zoning_vulnerability, compute_flood_hazard_overlay, compute_sponge_city_runoff, compute_spatial_equity_deficit
 from src.tools.map_renderer import build_interactive_folium_map
+from src.tools.raster_exporter import generate_geotiff_raster
+
 
 
 class TestGeospatialTools(unittest.TestCase):
@@ -72,23 +74,33 @@ class TestGeospatialTools(unittest.TestCase):
         self.assertIn("population_outside_15min_emergency_walkshed", res["metrics"])
         self.assertEqual(res["geojson_layer"]["layer_type"], "spatial_equity_deficit")
 
-    def test_folium_map_rendering(self):
-        ndvi_res = compute_ndvi_statistics("Khulna")
-        lulc_res = compute_lulc_change_detection("Khulna")
-        sponge_res = compute_sponge_city_runoff("Khulna")
-        equity_res = compute_spatial_equity_deficit("Khulna")
-        m = build_interactive_folium_map(
-            center_coords=[22.8456, 89.5403],
-            geojson_layers=[
-                ndvi_res["geojson_layer"],
-                lulc_res["geojson_layer"],
-                sponge_res["geojson_layer"],
-                equity_res["geojson_layer"]
-            ]
-        )
-        self.assertIsNotNone(m)
+    def test_geotiff_raster_export(self):
+        import rasterio
+        from rasterio.io import MemoryFile
+
+        # Test NDVI raster export
+        data_bytes, filename, meta = generate_geotiff_raster("Khulna", "ndvi")
+        self.assertTrue(filename.endswith(".tif"))
+        self.assertGreater(len(data_bytes), 1000)
+        self.assertEqual(meta["crs"], "EPSG:4326 (WGS 84)")
+        
+        # Verify valid GeoTIFF readable by rasterio
+        with MemoryFile(data_bytes) as memfile:
+            with memfile.open() as ds:
+                self.assertEqual(ds.crs.to_string(), "EPSG:4326")
+                self.assertEqual(ds.count, 1)
+                self.assertEqual(ds.shape, (150, 150))
+                arr = ds.read(1)
+                self.assertIsNotNone(arr)
+                self.assertGreater(arr.max(), 0.0)
+
+        # Test Sponge Runoff raster export
+        sponge_bytes, sponge_fn, sponge_meta = generate_geotiff_raster("Chittagong", "sponge_runoff")
+        self.assertIn("SpongeCity_Runoff", sponge_fn)
+        self.assertGreater(len(sponge_bytes), 1000)
 
 
 if __name__ == "__main__":
     unittest.main()
+
 

@@ -90,10 +90,12 @@ Allows planners to simulate strategic interventions interactively with real-time
 
 ### 💾 5. Multi-Format GIS & Municipal Report Exporter
 Provides complete data interoperability for researchers and municipal authorities:
-* **GeoJSON Layer Package (`.geojson`):** Direct drag-and-drop integration into QGIS and ArcGIS Pro.
-* **Geospatial Metrics Table (`.csv`):** Tabular format for statistical analysis in Python, R, or SPSS.
-* **Printable Municipal Brief (`.html` / PDF):** Formatted executive report with institutional KUET URP branding and compliance tables.
-* **Markdown Policy Brief (`.md`):** Complete structured text for academic documentation.
+* **🛰️ Georeferenced GeoTIFF Rasters (`.tif`):** WGS84 (EPSG:4326) 32-bit floating-point satellite rasters for **Sentinel-2 NDVI**, **Landsat-9 LST Thermal**, **SCS-CN Runoff Depth**, **Flood Inundation**, and **Categorical LULC** with embedded Affine Transforms for direct QGIS and ArcGIS Pro analysis.
+* **🗺️ GeoJSON Layer Package (`.geojson`):** Direct drag-and-drop vector features into QGIS, ArcGIS Pro, and Mapbox.
+* **📊 Geospatial Metrics Table (`.csv`):** Tabular statistical format for analysis in Python, R, or SPSS.
+* **📄 Printable Municipal Brief (`.html` / PDF):** Formatted executive report with institutional KUET URP branding and compliance tables.
+* **📑 Markdown Policy Brief (`.md`):** Complete structured text for academic documentation.
+
 
 ---
 
