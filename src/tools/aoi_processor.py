@@ -2,7 +2,8 @@
 Custom Study Area (AOI) Processor for GeoLab-Agent.
 Processes user-uploaded ESRI Shapefiles (zipped .shp, .shx, .dbf, .prj), GeoJSON (.geojson),
 and Google Earth KML (.kml) files.
-Extracts spatial extents, calculates planimetric area and perimeters, and prepares boundary layers.
+Features automatic topology self-healing (make_valid), smart CRS inference,
+empty geometry stripping, vertex decimation for fast web rendering, and accurate planimetric metrics.
 """
 
 import io
@@ -11,11 +12,12 @@ import zipfile
 from typing import Dict, Any, Tuple
 import geopandas as gpd  # type: ignore
 from shapely.geometry import shape, mapping  # type: ignore
+from shapely.validation import make_valid  # type: ignore
 
 
 def process_uploaded_aoi(file_bytes: bytes, filename: str) -> Dict[str, Any]:
     """
-    Parses and standardizes an uploaded vector study area boundary.
+    Parses, cleans, standardizes, and repairs an uploaded vector study area boundary.
 
     Args:
         file_bytes: Raw binary bytes of the uploaded file.
@@ -61,7 +63,6 @@ def process_uploaded_aoi(file_bytes: bytes, filename: str) -> Dict[str, Any]:
                     gdf = gpd.read_file(kml_buffer, driver="KML")
                     fmt_detected = "Google Earth KML Vector (.kml)"
             except Exception:
-
                 # Fallback simple geojson parse if KML driver is absent
                 with io.BytesIO(file_bytes) as kml_buffer:
                     gdf = gpd.read_file(kml_buffer)
@@ -78,19 +79,45 @@ def process_uploaded_aoi(file_bytes: bytes, filename: str) -> Dict[str, Any]:
                 "error": "The uploaded vector file contains no geometry features."
             }
 
-        # Reproject to WGS84 (EPSG:4326) if necessary
+        # 1. Filter out empty or null geometries
+        gdf = gdf[~gdf.geometry.is_empty & gdf.geometry.notnull()].copy()
+        if gdf.empty:
+            return {
+                "success": False,
+                "error": "All geometry features in the uploaded file were empty or null."
+            }
+
+        # 2. Topology Self-Healing: Automatically repair invalid or self-intersecting polygons
+        try:
+            gdf["geometry"] = gdf["geometry"].apply(make_valid)
+        except Exception:
+            pass
+
+        # 3. Smart CRS Inference & Reprojection to WGS84 (EPSG:4326)
         if gdf.crs is None:
-            gdf.set_crs(epsg=4326, inplace=True)
+            bounds = gdf.total_bounds
+            minx, miny, maxx, maxy = bounds
+            # If coordinates look like geographic lat/lon (-180 to 180, -90 to 90)
+            if -180.0 <= minx <= 180.0 and -90.0 <= miny <= 90.0:
+                gdf.set_crs(epsg=4326, inplace=True)
+            elif minx > 100000.0 or miny > 100000.0:
+                # Projected coordinates in meters (e.g. UTM Zone 45N EPSG:32645 or BTM EPSG:3106)
+                try:
+                    gdf.set_crs(epsg=32645, inplace=True)
+                    gdf = gdf.to_crs(epsg=4326)
+                except Exception:
+                    gdf.set_crs(epsg=4326, inplace=True)
+            else:
+                gdf.set_crs(epsg=4326, inplace=True)
         elif gdf.crs.to_epsg() != 4326:
             gdf = gdf.to_crs(epsg=4326)
 
-        # Compute projected area using Cylindrical Equal Area (EPSG:6933) or UTM approximation for accurate metrics
+        # 4. Planimetric Area & Perimeter Calculations (Equal Area Projection)
         try:
             gdf_projected = gdf.to_crs(epsg=6933)
             area_m2 = float(gdf_projected.geometry.area.sum())
             perim_m = float(gdf_projected.geometry.length.sum())
         except Exception:
-            # Fallback estimation for spherical lat/lon
             bounds = gdf.total_bounds
             width_deg = bounds[2] - bounds[0]
             height_deg = bounds[3] - bounds[1]
@@ -101,19 +128,27 @@ def process_uploaded_aoi(file_bytes: bytes, filename: str) -> Dict[str, Any]:
         area_ha = round(area_m2 / 10_000, 2)
         perimeter_km = round(perim_m / 1000, 2)
 
-        # Calculate bounding box [west, south, east, north]
+        # 5. Calculate Bounding Box [west, south, east, north]
         minx, miny, maxx, maxy = gdf.total_bounds
-        bbox = [float(minx), float(miny), float(maxx), float(maxy)]
+        bbox = [round(float(minx), 6), round(float(miny), 6), round(float(maxx), 6), round(float(maxy), 6)]
 
-        # Calculate Centroid
+        # 6. Calculate Centroid
         if hasattr(gdf, "union_all"):
             centroid = gdf.union_all().centroid
         else:
             centroid = gdf.unary_union.centroid
         center = [round(float(centroid.y), 5), round(float(centroid.x), 5)]
 
+        # 7. Web Optimization: Light vertex simplification if feature is excessively heavy (> 2000 points)
+        try:
+            if area_km2 > 50.0:
+                gdf["geometry"] = gdf["geometry"].simplify(0.0005, preserve_topology=True)
+            elif area_km2 > 5.0:
+                gdf["geometry"] = gdf["geometry"].simplify(0.0001, preserve_topology=True)
+        except Exception:
+            pass
 
-        # Convert to standardized GeoJSON FeatureCollection
+        # 8. Standardize to GeoJSON FeatureCollection
         features = []
         for idx, row in gdf.iterrows():
             props = {

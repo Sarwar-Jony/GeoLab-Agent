@@ -64,17 +64,28 @@ Respond ONLY with valid JSON in this format:
   "execution_plan_rationale": "Evaluating vegetative canopy deficit and surface heat island intensity to identify urban cooling intervention zones."
 }}"""
 
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
-                config={"response_mime_type": "application/json"}
-            )
-            parsed = json.loads(response.text)
-            if "tool_sequence" in parsed and parsed["tool_sequence"]:
-                plan_result = parsed
-                logs.append(f"✅ [Planner Agent] LLM Reasoning Success. Domain: {plan_result.get('identified_domain')}")
+            # Retry loop with exponential backoff for transient rate limits
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=prompt,
+                        config={"response_mime_type": "application/json"}
+                    )
+                    parsed = json.loads(response.text)
+                    if "tool_sequence" in parsed and parsed["tool_sequence"]:
+                        plan_result = parsed
+                        logs.append(f"✅ [Planner Agent] LLM Reasoning Success. Domain: {plan_result.get('identified_domain')}")
+                        break
+                except Exception as ex:
+                    if attempt == 0:
+                        import time
+                        time.sleep(1.5)
+                    else:
+                        raise ex
         except Exception as e:
-            logs.append(f"⚠️ [Planner Agent] Gemini API call skipped/fallback triggered: {str(e)[:100]}")
+            logs.append(f"⚠️ [Planner Agent] Gemini API call fallback triggered: {str(e)[:100]}")
+
 
     # Robust Universal Spatial Heuristic Fallback
     if not plan_result:

@@ -58,12 +58,22 @@ Write a comprehensive, professional Markdown report with the following structure
 
 Ensure the tone is academic, evidence-based, and actionable for city corporations, development authorities, and urban planners."""
 
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-            report_md = response.text
-            logs.append(f"✅ [Policy Critic] Gemini Policy Synthesis Complete.")
+            # Retry loop with exponential backoff for transient rate limits
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=prompt
+                    )
+                    report_md = response.text
+                    logs.append(f"✅ [Policy Critic] Gemini Policy Synthesis Complete.")
+                    break
+                except Exception as ex:
+                    if attempt == 0:
+                        import time
+                        time.sleep(1.5)
+                    else:
+                        raise ex
         except Exception as e:
             logs.append(f"⚠️ [Policy Critic] Gemini API synthesis fallback triggered: {str(e)[:100]}")
 

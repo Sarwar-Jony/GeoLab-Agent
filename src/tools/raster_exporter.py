@@ -159,6 +159,16 @@ def generate_geotiff_raster(
         bbox = geo_data["bbox"]
         west, south, east, north = bbox
 
+    # Adaptive Grid Resolution Engine for optimal performance & low memory
+    deg_span = max(abs(east - west), abs(north - south))
+    if width == 150 and height == 150:
+        if deg_span < 0.05:  # Micro/Ward scale (< 5 km)
+            width, height = 220, 220
+        elif deg_span > 0.8:  # Macro/Regional scale (> 100 km)
+            width, height = 130, 130
+        else:  # Standard City scale (5-100 km)
+            width, height = 160, 160
+
     transform = from_bounds(west, south, east, north, width, height)
 
     # Coordinate meshgrid for realistic spatial distribution
@@ -166,6 +176,7 @@ def generate_geotiff_raster(
     y = np.linspace(-2, 2, height)
     xx, yy = np.meshgrid(x, y)
     r = np.sqrt(xx**2 + yy**2)
+
 
     # Deterministic spatial seed per location
     np.random.seed(42 + len(target_location))
