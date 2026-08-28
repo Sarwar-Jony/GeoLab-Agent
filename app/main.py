@@ -452,20 +452,21 @@ with main_tab_whatif:
             )
 
         st.markdown("---")
-        st.markdown("""
+        st.markdown(r"""
         <div class="feature-card">
             <h5 style="color: #38bdf8; margin-top: 0;">🔬 Scientific Model Reference:</h5>
             <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 6px;">
                 • <strong>Thermal Mitigation:</strong> Calibrated via Oke's Urban Energy Balance equation ($\Delta T = f(\text{Canopy}, \text{Albedo})$).
             </p>
             <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 6px;">
-                • <strong>Sponge City Runoff:</strong> Soil Conservation Service Curve Number (SCS-CN) retention model ($Q = \\frac{(P - 0.2S)^2}{P + 0.8S}$).
+                • <strong>Sponge City Runoff:</strong> Soil Conservation Service Curve Number (SCS-CN) retention model ($Q = \frac{(P - 0.2S)^2}{P + 0.8S}$).
             </p>
             <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 0;">
                 • <strong>Pedestrian Isochrones:</strong> 2-Step Floating Catchment Area (2SFCA) over OSMnx topological street graphs.
             </p>
         </div>
         """, unsafe_allow_html=True)
+
 
 
 # ==============================================================================
