@@ -1,0 +1,38 @@
+# Environment variables & API Keys
+.env
+.env.local
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Geospatial Data & Heavy rasters
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+*.tif
+*.tiff
+*.nc
+*.h5
+*.shp
+*.shx
+*.dbf
+*.prj
+
+# Jupyter & IDEs
+.ipynb_checkpoints
+.vscode/
+.idea/
+.pytest_cache/
+
+# Streamlit
+.streamlit/
