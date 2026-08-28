@@ -1,7 +1,7 @@
 """
 GeoLab-Agent: Autonomous Multi-Agent GeoAI Web Platform.
-Built with Streamlit, Folium, and LangGraph.
-Department of Urban and Regional Planning (URP), KUET.
+Created & Developed by Sarwar Jony.
+Department of Urban and Regional Planning (URP), Khulna University of Engineering & Technology (KUET).
 """
 
 import os
@@ -15,7 +15,7 @@ if str(root_dir) not in sys.path:
     sys.path.insert(0, str(root_dir))
 
 import streamlit as st  # type: ignore
-from streamlit_folium import st_folium  # type: ignore
+import streamlit.components.v1 as components  # type: ignore
 from dotenv import load_dotenv  # type: ignore
 
 load_dotenv()
@@ -29,7 +29,7 @@ from src.tools.aoi_processor import process_uploaded_aoi
 
 # Page Configuration
 st.set_page_config(
-    page_title="GeoLab-Agent | Autonomous GeoAI Platform",
+    page_title="GeoLab-Agent | by Sarwar Jony",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -124,21 +124,21 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Agent Status Pill */
-    .agent-pill {
+    /* Developer Spotlight Card */
+    .dev-badge {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 4px 12px;
+        padding: 5px 14px;
         border-radius: 9999px;
-        font-size: 0.78rem;
-        font-weight: 600;
-        background: rgba(14, 165, 233, 0.15);
+        font-size: 0.82rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(14, 165, 233, 0.1) 100%);
         color: #38bdf8;
-        border: 1px solid rgba(56, 189, 248, 0.3);
+        border: 1px solid rgba(56, 189, 248, 0.4);
     }
 
-    /* Tab and Button Polish */
+    /* Button Styling */
     .stButton>button {
         background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
         color: white;
@@ -165,8 +165,10 @@ if "custom_aoi_data" not in st.session_state:
     st.session_state.custom_aoi_data = None
 if "selected_raster_idx" not in st.session_state:
     st.session_state.selected_raster_idx = "ndvi"
+if "map_view_mode" not in st.session_state:
+    st.session_state.map_view_mode = "Split Studio (Map + Policy)"
 
-# Standard 13 Raster Analysis Options (Pure English)
+# 13 Standard Earth Observation & Terrain Products
 RASTER_OPTIONS_EN = {
     "lulc": "🔄 Land Use / Land Cover (5-Class LULC)",
     "ndvi": "🌿 Sentinel-2 NDVI (Vegetation Canopy Index)",
@@ -185,19 +187,27 @@ RASTER_OPTIONS_EN = {
 
 raster_keys = list(RASTER_OPTIONS_EN.keys())
 
-# Sidebar: 13-Index Multi-Spectral & Terrain Analysis Panel (100% English)
+# Sidebar: Developer Spotlight & 13-Index Raster Selector
 with st.sidebar:
     st.markdown("""
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
         <span style="font-size: 2.2rem;">🌍</span>
         <div>
             <h2 style="margin: 0; font-size: 1.3rem; font-weight: 800; color: #f8fafc;">GeoLab-Agent</h2>
-            <p style="margin: 0; font-size: 0.75rem; color: #38bdf8; font-weight: 600;">Autonomous GeoAI & Spatial LLM Platform</p>
+            <p style="margin: 0; font-size: 0.76rem; color: #38bdf8; font-weight: 700;">by Sarwar Jony</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("### 🛰️ Remote Sensing & Terrain Analysis")
+    st.markdown("""
+    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 8px 12px; margin-bottom: 16px;">
+        <div style="font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Developer & Lead Researcher</div>
+        <div style="font-size: 0.95rem; font-weight: 800; color: #f8fafc; margin: 2px 0;">Sarwar Jony</div>
+        <div style="font-size: 0.75rem; color: #38bdf8;">Dept. of Urban & Regional Planning, KUET</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### 🛰️ Remote Sensing & Terrain Layer")
     
     default_idx_pos = raster_keys.index(st.session_state.selected_raster_idx) if st.session_state.selected_raster_idx in raster_keys else 1
     
@@ -213,44 +223,43 @@ with st.sidebar:
     # Active selected raster metadata display
     r_info = AVAILABLE_RASTER_TYPES.get(selected_raster_key, {})
     st.markdown(f"""
-    <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 0.8rem;">
+    <div style="background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 0.8rem;">
         <div style="color: #38bdf8; font-weight: 700; margin-bottom: 3px;">🔬 {r_info.get('name', '')}</div>
         <div style="color: #cbd5e1; margin-bottom: 4px;"><strong>Sensor:</strong> {r_info.get('sensor', '')}</div>
-        <div style="color: #94a3b8; font-family: monospace; font-size: 0.75rem;">{r_info.get('formula', '')}</div>
+        <div style="color: #94a3b8; font-family: monospace; font-size: 0.74rem;">{r_info.get('formula', '')}</div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("### ⚙️ System Configuration")
-    api_status = "🟢 Active (Configured)" if os.environ.get("GEMINI_API_KEY") else "🟡 Synthetic / Sandbox Mode"
+    st.markdown("### ⚙️ System Engine")
+    api_status = "🟢 Active (Configured)" if os.environ.get("GEMINI_API_KEY") else "🟡 Synthetic Engine Active"
     st.caption(f"**LLM Engine:** Gemini 2.5 Flash ({api_status})")
+    st.caption("**Visual Map:** Leaflet & Folium Web Components")
     st.caption("**Geocoding:** Universal OSM Nominatim & Curated Registry")
     st.caption("**AOI Engine:** Shapefile (.shp/.zip), GeoJSON, KML Processor")
-    st.caption("**Earth Observation:** Sentinel-2, Landsat-9, Sentinel-5P, DEM")
-    st.caption("**Network Engine:** OSMnx & Graph Theory")
-    st.caption("**Hydrology:** SCS-CN Sponge City & Flow Accumulation")
+    st.caption("**Earth Observation:** Sentinel-2, Landsat-9, DEM")
     st.caption("**Institution:** KUET Urban & Regional Planning (URP)")
     
     st.markdown("---")
     st.markdown(
         "<div style='font-size: 0.72rem; color: #64748b; text-align: center;'>"
-        "Designed for Academic Publications & Graduate Research Fellowships<br>"
-        "Developed by KUET URP Researchers"
+        "Designed & Developed by <strong>Sarwar Jony</strong><br>"
+        "KUET URP Spatial Intelligence Initiative"
         "</div>", 
         unsafe_allow_html=True
     )
 
-# Header Section (Pure English)
+# Header Section
 st.markdown("""
 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
     <div>
         <h1 style="margin: 0; font-size: 1.85rem; font-weight: 800; color: #f8fafc;">Autonomous Spatial Planning & GeoAI Studio</h1>
         <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 0.95rem;">
-            Upload your own Study Area Boundary (Shapefile/GeoJSON) or search any location worldwide to orchestrate Earth Observation and Policy Analytics
+            Upload your Study Area Shapefile or search any location worldwide to orchestrate Earth Observation and Policy Analytics
         </p>
     </div>
     <div>
-        <span class="agent-pill">🤖 LangGraph Multi-Agent Active</span>
+        <span class="dev-badge">👨‍💻 Developed by Sarwar Jony</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -331,24 +340,29 @@ custom_aoi = st.session_state.custom_aoi_data
 # TOP-LEVEL WEBSITE NAVIGATION TABS (PURE ENGLISH)
 # ==============================================================================
 main_tab_studio, main_tab_whatif, main_tab_eo, main_tab_export, main_tab_methodology, main_tab_about = st.tabs([
-    "🌍 Spatial Studio & Visual Map",
+    "🌍 Visual Map & Spatial Studio",
     "🧪 Digital Twin 'What-If' Sandbox",
     "🛰️ Earth Observation Explorer",
     "💾 GIS & Municipal Export Hub",
     "📚 Research Methodology & Standards",
-    "🏛️ About KUET GeoLab"
+    "🏛️ About Developer & KUET URP"
 ])
 
 
 # ==============================================================================
-# TAB 1: SPATIAL PLANNING STUDIO (VISUAL MAP & POLICY WORKSPACE)
+# TAB 1: VISUAL MAP & SPATIAL PLANNING STUDIO
 # ==============================================================================
 with main_tab_studio:
     if result:
+        loc_display = result.get("target_location", "Khulna")
+        center = result.get("center_coordinates", [22.8456, 89.5403])
+        layers = result.get("geojson_layers", [])
+        custom_bbox_vals = custom_aoi["bbox"] if custom_aoi else None
+        active_raster_name = RASTER_OPTIONS_EN.get(st.session_state.selected_raster_idx, st.session_state.selected_raster_idx)
+
         # Dynamic Metric KPI Cards
         cols = st.columns(4)
         
-        # Card 1: Green Space / Canopy
         with cols[0]:
             green_m2 = result.get("collected_metrics", {}).get("compute_ndvi_statistics__green_space_per_capita_m2", 3.8)
             ndvi_val = result.get("collected_metrics", {}).get("compute_ndvi_statistics__mean_ndvi", 0.18)
@@ -360,7 +374,6 @@ with main_tab_studio:
             </div>
             """, unsafe_allow_html=True)
 
-        # Card 2: Surface Urban Heat Island (SUHI)
         with cols[1]:
             suhi_delta = result.get("collected_metrics", {}).get("compute_lst_heat_island__suhi_intensity_delta_celsius", "+3.8°C")
             mean_lst = result.get("collected_metrics", {}).get("compute_lst_heat_island__mean_lst_celsius", 35.4)
@@ -372,7 +385,6 @@ with main_tab_studio:
             </div>
             """, unsafe_allow_html=True)
 
-        # Card 3: 15-Minute Walkability Index
         with cols[2]:
             walk_idx = result.get("collected_metrics", {}).get("compute_walkability_isochrones__15_min_walkability_index", "68.5/100")
             transit_acc = result.get("collected_metrics", {}).get("compute_transit_accessibility__transit_access_index", 72.0)
@@ -384,7 +396,6 @@ with main_tab_studio:
             </div>
             """, unsafe_allow_html=True)
 
-        # Card 4: Planning Compliance
         with cols[3]:
             verdict = result.get("compliance_verdict", "Strategic Intervention Required")
             st.markdown(f"""
@@ -395,84 +406,78 @@ with main_tab_studio:
             </div>
             """, unsafe_allow_html=True)
 
-        # Two-Column Studio Layout: Left (Policy Report & Trace) | Right (Interactive Visual Map)
-        col_left, col_right = st.columns([1, 1], gap="medium")
+        # Build Interactive Folium Map
+        map_obj = build_interactive_folium_map(
+            center_coords=center,
+            zoom_start=13,
+            geojson_layers=layers,
+            active_raster_type=st.session_state.selected_raster_idx,
+            target_location=loc_display,
+            metrics=result.get("collected_metrics", {}),
+            custom_bbox=custom_bbox_vals
+        )
 
-        with col_left:
-            sub_tab_report, sub_tab_logs, sub_tab_tools = st.tabs([
-                "📑 Policy Synthesis", 
-                "🔍 Agent Reasoning Trace", 
-                "⚙️ Executed GIS Tools"
-            ])
-            
-            with sub_tab_report:
-                st.markdown(result.get("policy_report_markdown", "*No report generated.*"))
-                
-            with sub_tab_logs:
-                st.markdown("#### Multi-Agent Execution Trace")
-                for log in result.get("execution_logs", []):
-                    if "❌" in log:
-                        st.error(log)
-                    elif "⚠️" in log:
-                        st.warning(log)
-                    elif "✅" in log:
-                        st.success(log)
-                    elif "🧠" in log or "🚀" in log or "📊" in log or "⚙️" in log:
-                        st.info(log)
-                    else:
-                        st.write(log)
-                        
-            with sub_tab_tools:
-                st.markdown("#### Tool Output Registry")
-                for res in result.get("tool_results", []):
-                    with st.expander(f"🛠️ {res.get('tool', 'Geospatial Tool')}"):
-                        st.json(res)
+        # Render HTML string for 100% reliable iframe rendering
+        map_html = map_obj.get_root().render() if hasattr(map_obj, "get_root") else "<div>Map loading...</div>"
 
-        with col_right:
-            loc_display = result.get("target_location", "Khulna")
-            center = result.get("center_coordinates", [22.8456, 89.5403])
-            layers = result.get("geojson_layers", [])
-            custom_bbox_vals = custom_aoi["bbox"] if custom_aoi else None
-            
-            active_raster_name = RASTER_OPTIONS_EN.get(st.session_state.selected_raster_idx, st.session_state.selected_raster_idx)
-            
-            # Map Top Control Bar
+        # View Mode Selector
+        view_col1, view_col2 = st.columns([3, 1])
+        with view_col1:
             st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 8px 14px;">
-                <div>
-                    <span style="font-size: 0.95rem; font-weight: 700; color: #f8fafc;">🗺️ Visual Map: </span>
-                    <span style="font-size: 0.9rem; color: #38bdf8; font-weight: 600;">{loc_display}</span>
-                </div>
-                <div style="font-size: 0.8rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(56, 189, 248, 0.3); font-weight: 600;">
-                    🛰️ Active Layer: {active_raster_name.split(' (')[0]}
-                </div>
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                <h3 style="margin: 0; font-size: 1.25rem; color: #f8fafc;">🗺️ Visual Map Studio</h3>
+                <span style="font-size: 0.8rem; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 3px 10px; border-radius: 6px; font-weight: 600;">
+                    🛰️ Active Layer: {active_raster_name}
+                </span>
             </div>
             """, unsafe_allow_html=True)
+        with view_col2:
+            map_view = st.radio("Studio View:", ["Split View (Map + Report)", "Full-Width Visual Map"], horizontal=True, label_visibility="collapsed")
+
+        if map_view == "Full-Width Visual Map":
+            # 100% Full Width Visual Map Experience
+            components.html(map_html, height=720, scrolling=False)
+            st.caption(f"💡 *Full-screen Visual Map for **{loc_display}**. Showing **{active_raster_name}** scientific colormap overlay. Toggle base layers (Dark Matter, Satellite, OSM) from the top-right layer control.*")
             
-            # Render Visual Map with unique key to guarantee reactive re-rendering
-            map_obj = build_interactive_folium_map(
-                center_coords=center,
-                zoom_start=13,
-                geojson_layers=layers,
-                active_raster_type=st.session_state.selected_raster_idx,
-                target_location=loc_display,
-                metrics=result.get("collected_metrics", {}),
-                custom_bbox=custom_bbox_vals
-            )
+            with st.expander("📑 View Executive Policy Synthesis & Reasoning Trace"):
+                st.markdown(result.get("policy_report_markdown", "*No report generated.*"))
+        else:
+            # 50/50 Split Studio Layout
+            col_map, col_report = st.columns([1.1, 0.9], gap="medium")
             
-            if hasattr(map_obj, "get_root"):
-                st_folium(
-                    map_obj,
-                    width="100%",
-                    height=640,
-                    returned_objects=[],
-                    key=f"visual_folium_map_{loc_display}_{st.session_state.selected_raster_idx}"
-                )
-            else:
-                st.info("🗺️ Multi-Layer Map Layer Metadata Available.")
-                st.json(map_obj)
-            
-            st.caption(f"💡 *Displaying **{active_raster_name}** colormap overlay. Toggle between Dark Matter, Satellite Imagery, and OpenStreetMap from the top-right layer control.*")
+            with col_map:
+                components.html(map_html, height=650, scrolling=False)
+                st.caption(f"💡 *Visual Map for **{loc_display}** displaying **{active_raster_name}**.*")
+                
+            with col_report:
+                sub_tab_report, sub_tab_logs, sub_tab_tools = st.tabs([
+                    "📑 Policy Synthesis", 
+                    "🔍 Agent Reasoning Trace", 
+                    "⚙️ Executed GIS Tools"
+                ])
+                
+                with sub_tab_report:
+                    st.markdown(result.get("policy_report_markdown", "*No report generated.*"))
+                    
+                with sub_tab_logs:
+                    st.markdown("#### Multi-Agent Execution Trace")
+                    for log in result.get("execution_logs", []):
+                        if "❌" in log:
+                            st.error(log)
+                        elif "⚠️" in log:
+                            st.warning(log)
+                        elif "✅" in log:
+                            st.success(log)
+                        elif "🧠" in log or "🚀" in log or "📊" in log or "⚙️" in log:
+                            st.info(log)
+                        else:
+                            st.write(log)
+                            
+                with sub_tab_tools:
+                    st.markdown("#### Tool Output Registry")
+                    for res in result.get("tool_results", []):
+                        with st.expander(f"🛠️ {res.get('tool', 'Geospatial Tool')}"):
+                            st.json(res)
 
 
 # ==============================================================================
@@ -597,7 +602,7 @@ with main_tab_eo:
                     <p style="font-size: 0.9rem; color: #cbd5e1; margin: 0 0 10px 0;">{info_data['description']}</p>
                 </div>
                 <div>
-                    <span class="agent-pill">WGS84 EPSG:4326</span>
+                    <span class="dev-badge">WGS84 EPSG:4326</span>
                 </div>
             </div>
             
@@ -817,7 +822,6 @@ with main_tab_export:
         st.markdown("---")
         
         # Section 3: Tabular Indicators & Policy Reports
-        st.markdown("##### 📊 3. Tabular Metrics & Municipal Reports")
         tab_col1, tab_col2, tab_col3 = st.columns(3)
         
         with tab_col1:
@@ -848,7 +852,7 @@ with main_tab_export:
                 use_container_width=True,
                 key="btn_download_html"
             )
-            st.caption("Printable report with KUET URP layout.")
+            st.caption("Printable report with institutional layout.")
             
         with tab_col3:
             st.download_button(
@@ -933,21 +937,43 @@ with main_tab_methodology:
 
 
 # ==============================================================================
-# TAB 6: ABOUT KUET GEOLAB & ACADEMIC CITATION
+# TAB 6: ABOUT DEVELOPER & KUET URP
 # ==============================================================================
 with main_tab_about:
-    st.markdown("### 🏛️ About GeoLab-Agent & KUET URP Initiative")
+    st.markdown("### 🏛️ About GeoLab-Agent & Developer")
     
     st.markdown("""
-    <div class="feature-card">
-        <h4 style="color: #38bdf8; margin-top: 0;">🎓 Department of Urban and Regional Planning (URP)</h4>
-        <p style="font-size: 0.92rem; color: #cbd5e1; line-height: 1.7;">
-            <strong>GeoLab-Agent</strong> is an open-source, autonomous GeoAI and multi-agent spatial planning research platform developed at the 
-            <strong>Department of Urban and Regional Planning (URP), Khulna University of Engineering & Technology (KUET)</strong>.
+    <div class="feature-card" style="border: 1px solid rgba(56, 189, 248, 0.4); background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);">
+        <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 14px;">
+            <div style="font-size: 2.8rem; background: rgba(56, 189, 248, 0.15); width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.3);">
+                👨‍💻
+            </div>
+            <div>
+                <h3 style="color: #f8fafc; margin: 0; font-size: 1.4rem;">Sarwar Jony</h3>
+                <p style="color: #38bdf8; font-weight: 700; margin: 2px 0 0 0; font-size: 0.92rem;">
+                    Lead Developer, GeoAI Architect & Urban Planner
+                </p>
+                <p style="color: #94a3b8; margin: 2px 0 0 0; font-size: 0.82rem;">
+                    Department of Urban and Regional Planning (URP), Khulna University of Engineering & Technology (KUET)
+                </p>
+            </div>
+        </div>
+        <p style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.7; margin: 0;">
+            <strong>GeoLab-Agent</strong> is designed and developed by <strong>Sarwar Jony</strong> as a cutting-edge autonomous GeoAI and multi-agent spatial analytics platform. 
+            It unifies multi-sensor satellite Earth Observation (Sentinel-2, Landsat-9, DEM), topological street networks, and urban policy modeling into an interactive web studio.
         </p>
-        <p style="font-size: 0.88rem; color: #94a3b8; line-height: 1.6;">
-            The platform bridges the gap between Earth Observation satellite data (Sentinel-2, Landsat-9, Sentinel-5P), network graph algorithms, and municipal urban policy making. 
-            It is tailored for graduate research fellowships, doctoral theses, and urban development authorities.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="feature-card">
+        <h4 style="color: #38bdf8; margin-top: 0;">🎓 Academic & Research Affiliation</h4>
+        <p style="font-size: 0.9rem; color: #cbd5e1; line-height: 1.6;">
+            <strong>Department of Urban and Regional Planning (URP)</strong><br>
+            Khulna University of Engineering & Technology (KUET), Khulna-9203, Bangladesh.
+        </p>
+        <p style="font-size: 0.84rem; color: #94a3b8; line-height: 1.6;">
+            Tailored for academic research publications, graduate theses, municipal urban master planning, and climate resilience fellowships.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -956,10 +982,10 @@ with main_tab_about:
     st.caption("If you use GeoLab-Agent in your academic research, journal papers, or graduate theses, please cite:")
     
     bibtex_str = """@software{geolab_agent_2026,
-  author = {GeoLab Research Team and Sarwar Jony},
+  author = {Sarwar Jony and GeoLab Research Team},
   title = {GeoLab-Agent: Autonomous Multi-Agent GeoAI Platform for Urban Spatial Planning and Earth Observation},
   year = {2026},
-  publisher = {Department of Urban and Regional Planning (URP), Khulna University of Engineering & Technology (KUET)},
+  publisher = {Sarwar Jony / Department of Urban and Regional Planning (URP), Khulna University of Engineering & Technology (KUET)},
   url = {https://github.com/Sarwar-Jony/GeoLab-Agent}
 }"""
     
@@ -968,7 +994,7 @@ with main_tab_about:
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #64748b; font-size: 0.82rem;">
-        🌍 <strong>GeoLab-Agent v1.0.0</strong> | Developed for KUET URP Research & Municipal Planning Authorities<br>
+        🌍 <strong>GeoLab-Agent v1.0.0</strong> | Created & Developed by <strong>Sarwar Jony</strong> (KUET URP)<br>
         Source Code: <a href="https://github.com/Sarwar-Jony/GeoLab-Agent" target="_blank" style="color: #38bdf8;">github.com/Sarwar-Jony/GeoLab-Agent</a>
     </div>
     """, unsafe_allow_html=True)
