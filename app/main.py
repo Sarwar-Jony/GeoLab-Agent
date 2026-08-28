@@ -590,7 +590,7 @@ with main_tab_whatif:
             )
 
         st.markdown("---")
-        st.markdown("""
+        st.markdown(r"""
         <div class="feature-card">
             <h5 style="color: #38bdf8; margin-top: 0;">🔬 Scientific Model Reference:</h5>
             <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 6px;">
@@ -604,6 +604,7 @@ with main_tab_whatif:
             </p>
         </div>
         """, unsafe_allow_html=True)
+
     else:
         st.info("👈 Please define a study area on the main studio tab to activate the digital twin simulation.")
 
